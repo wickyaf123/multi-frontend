@@ -3,7 +3,7 @@
   "buildCommand": "npm run build",
   "outputDirectory": ".next",
   "env": {
-    "NEXT_PUBLIC_API_URL": "https://multi-backend-production.up.railway.app"
+    "NEXT_PUBLIC_API_URL": "https://multi-backend-multi.up.railway.app"
   },
   "headers": [
     {
