@@ -187,19 +187,18 @@ export default function Stage3({ isLoading, error, result, onBack, onRestart, on
     if (isLoading) {
       return (
         <div className='flex flex-col items-center space-y-2'>
-            <p>Generating your multi...</p>
-            {/* Indeterminate Progress */}
-            <Progress className="w-[60%]" />
+            <p className="text-foreground">Generating your multi...</p>
+            <Progress className="w-[60%] bg-secondary/30" />
         </div>
       );
     }
 
     if (error) {
       return (
-        <Alert variant="destructive">
+        <Alert variant="destructive" className="bg-destructive/20 border-destructive/30">
           <Terminal className="h-4 w-4" />
-          <AlertTitle>Error</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
+          <AlertTitle className="text-destructive">Error</AlertTitle>
+          <AlertDescription className="text-foreground">{error}</AlertDescription>
         </Alert>
       );
     }
@@ -214,7 +213,7 @@ export default function Stage3({ isLoading, error, result, onBack, onRestart, on
                 Achieved Odds: {getMainOdds().toFixed(2)} /
                 Potential Win: ${getMainPotentialWin().toFixed(2)} (from ${result.stake?.toFixed(2)} stake)
             </p>
-            <ul className="space-y-2 border rounded-md p-3 bg-secondary/50 max-h-[350px] overflow-y-auto">
+            <ul className="space-y-2 border border-primary/20 rounded-md p-3 bg-card/70 max-h-[350px] overflow-y-auto">
                 {mainLegs.map((leg, index) => {
                     const hasAlternatives = getPlayerAlternatives(index).length > 0;
                     const isExpanded = expandedPosition === index;
@@ -224,8 +223,8 @@ export default function Stage3({ isLoading, error, result, onBack, onRestart, on
                         <li className="text-sm">
                           <div className="flex justify-between items-center">
                             <span>
-                                <span className="font-semibold">{leg.playerName}</span> 
-                                <span className="ml-1 text-xs px-1.5 py-0.5 rounded bg-gray-200 dark:bg-gray-700">
+                                <span className="font-semibold text-foreground">{leg.playerName}</span> 
+                                <span className="ml-1 text-xs px-1.5 py-0.5 rounded bg-primary/10 text-primary">
                                     {leg.market === 'ATS' ? 'Anytime Try' : '2+ Tries'}
                                 </span>
                                 <br/>
@@ -241,7 +240,7 @@ export default function Stage3({ isLoading, error, result, onBack, onRestart, on
                                 <Button 
                                   variant="ghost" 
                                   size="sm" 
-                                  className="h-7 w-7 p-0"
+                                  className="h-7 w-7 p-0 hover:bg-primary/10 text-foreground"
                                   onClick={() => togglePositionAlternatives(index)}
                                 >
                                   {isExpanded ? (
@@ -256,15 +255,15 @@ export default function Stage3({ isLoading, error, result, onBack, onRestart, on
                           
                           {/* Alternative players for this position */}
                           {isExpanded && (
-                            <div className="mt-2 ml-4 border-l-2 pl-3 border-gray-200 dark:border-gray-700">
-                              <p className="text-xs text-muted-foreground mb-1">Alternative Players:</p>
+                            <div className="mt-2 ml-4 border-l-2 pl-3 border-primary/30">
+                              <p className="text-xs text-primary mb-1">Alternative Players:</p>
                               <ul className="space-y-1.5">
                                 {getPlayerAlternatives(index).map((alt, altIndex) => (
                                   <li key={`alt-${index}-${altIndex}`} className="text-xs">
-                                    <div className="flex justify-between items-center hover:bg-gray-100 dark:hover:bg-gray-800 p-1 rounded cursor-pointer" onClick={() => handleSwapPlayer(index, alt)}>
+                                    <div className="flex justify-between items-center hover:bg-primary/10 p-1 rounded cursor-pointer" onClick={() => handleSwapPlayer(index, alt)}>
                                       <span>
-                                        <span className="font-medium">{alt.playerName}</span>
-                                        <span className="ml-1 px-1 py-0.5 rounded bg-gray-200 dark:bg-gray-700 text-[10px]">
+                                        <span className="font-medium text-foreground">{alt.playerName}</span>
+                                        <span className="ml-1 px-1 py-0.5 rounded bg-primary/10 text-primary text-[10px]">
                                           {alt.market === 'ATS' ? 'Anytime Try' : '2+ Tries'}
                                         </span>
                                       </span>
@@ -293,10 +292,10 @@ export default function Stage3({ isLoading, error, result, onBack, onRestart, on
 
     if (result && getMainLegs().length === 0) {
       return (
-        <Alert>
+        <Alert className="bg-secondary/10 border-secondary/20">
           <Terminal className="h-4 w-4" />
-          <AlertTitle>No Combination Found</AlertTitle>
-          <AlertDescription>{result.message}</AlertDescription>
+          <AlertTitle className="text-foreground">No Combination Found</AlertTitle>
+          <AlertDescription className="text-muted-foreground">{result.message}</AlertDescription>
         </Alert>
       );
     }
@@ -306,19 +305,33 @@ export default function Stage3({ isLoading, error, result, onBack, onRestart, on
   };
 
   return (
-    <Card className="flex flex-col">
-      <CardHeader>
-        <CardTitle>Stage 3: Your Generated Multi</CardTitle>
-        <CardDescription>
+    <Card className="flex flex-col bg-card border-primary/20 shadow-lg">
+      <CardHeader className="bg-card border-b border-primary/10">
+        <CardTitle className="text-foreground">Stage 3: Your Generated Multi</CardTitle>
+        <CardDescription className="text-muted-foreground">
           {isLoading ? "Calculating..." : (error || (result && getMainLegs().length === 0)) ? "Result" : "Here's a multi matching your request:"}
         </CardDescription>
       </CardHeader>
-      <CardContent className="flex-grow flex flex-col">
+      <CardContent className="flex-grow flex flex-col pt-6">
         {renderContent()}
       </CardContent>
       <CardFooter className="mt-auto flex justify-between">
-        <Button variant="outline" onClick={onBack} disabled={isLoading}>Back</Button>
-        <Button variant="secondary" onClick={onRestart} disabled={isLoading}>Start Over</Button>
+        <Button 
+          variant="outline" 
+          onClick={onBack} 
+          disabled={isLoading} 
+          className="border-primary/30 hover:bg-primary/10 text-foreground disabled:opacity-50"
+        >
+          Back
+        </Button>
+        <Button 
+          variant="secondary" 
+          onClick={onRestart} 
+          disabled={isLoading}
+          className="bg-secondary text-secondary-foreground hover:bg-secondary/90 disabled:opacity-50"
+        >
+          Start Over
+        </Button>
       </CardFooter>
     </Card>
   );

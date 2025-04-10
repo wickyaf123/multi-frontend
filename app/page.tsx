@@ -163,7 +163,7 @@ export default function MultiBuilderPage() {
   const direction = 1; // Assuming forward motion for simplicity here
 
   return (
-    <div className="flex justify-center items-center min-h-screen bg-gray-100 p-4">
+    <div className="flex justify-center items-center min-h-screen bg-background p-4">
       <div className="w-full max-w-md relative overflow-hidden"> {/* Remove h-[400px] fixed height */}
         <AnimatePresence initial={false} custom={direction}>
           <motion.div
