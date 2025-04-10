@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
-import { Terminal, Shuffle, ArrowRight, Check, ChevronDown, ChevronUp } from "lucide-react"; 
+import { Terminal, ChevronDown, ChevronUp } from "lucide-react"; 
 
 // Define the structure of a single leg
 interface Leg {

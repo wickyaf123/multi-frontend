@@ -97,13 +97,14 @@ export default function MultiBuilderPage() {
         
         setError(null);
       }
-    } catch (err: any) {
+    } catch (err: Error | unknown) {
       console.error("API call failed:", err);
       // Check if this was a timeout error
-      if (err.name === 'AbortError') {
+      if (err && typeof err === 'object' && 'name' in err && err.name === 'AbortError') {
         setError('The request took too long to complete. Try with different values or try again later.');
       } else {
-        setError(`Failed to connect to the backend: ${err.message}. Is it running?`);
+        const errorMessage = err && typeof err === 'object' && 'message' in err ? err.message : 'Unknown error';
+        setError(`Failed to connect to the backend: ${errorMessage}. Is it running?`);
       }
       setMultiResult(null);
     } finally {
