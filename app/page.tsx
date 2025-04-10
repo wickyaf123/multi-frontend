@@ -42,8 +42,9 @@ export default function MultiBuilderPage() {
       
       // Get API URL from environment variable or use fallback
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
+      console.log("Using API URL:", apiUrl); // Add logging to debug
       
-      // Ensure your backend URL is correct
+      // Ensure your backend URL is correct - make sure to use the full URL
       const response = await fetch(`${apiUrl}/api/generate-multi`, {
         method: 'POST',
         headers: {
