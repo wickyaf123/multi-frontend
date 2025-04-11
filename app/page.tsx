@@ -3,37 +3,24 @@
 import React, { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 
-import Stage1 from '@/components/Stage1';
-import Stage2 from '@/components/Stage2';
+import Stage1And2, { SportType } from '@/components/Stage1And2';
 import Stage3, { MultiResult } from '@/components/Stage3';
 
 export default function MultiBuilderPage() {
-  const [currentStage, setCurrentStage] = useState<number>(1);
   const [stake, setStake] = useState<number | null>(null);
   const [winAmount, setWinAmount] = useState<number | null>(null);
+  const [sportType, setSportType] = useState<SportType>('nrl');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [multiResult, setMultiResult] = useState<MultiResult | null>(null);
 
-  const handleStage1Submit = (stakeValue: number) => {
+  const handleCombinedSubmit = async (stakeValue: number, winAmountValue: number, sportTypeValue: SportType) => {
     setStake(stakeValue);
-    setError(null); // Clear previous errors
-    setMultiResult(null); // Clear previous results
-    setCurrentStage(2);
-  };
-
-  const handleStage2Submit = async (winAmountValue: number) => {
     setWinAmount(winAmountValue);
+    setSportType(sportTypeValue);
     setError(null);
     setMultiResult(null);
     setIsLoading(true);
-    setCurrentStage(3); // Move to stage 3 immediately to show loading
-
-    if (stake === null) {
-      setError('Stake amount is missing.');
-      setIsLoading(false);
-      return;
-    }
 
     try {
       // Create an AbortController to handle timeouts
@@ -41,30 +28,101 @@ export default function MultiBuilderPage() {
       const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
       
       // Get API URL from environment variable or use fallback
+      // IMPORTANT: In local development, we'll try both the environment variable and localhost if needed
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
-      console.log("Using API URL:", apiUrl); // Add logging to debug
       
-      // Ensure your backend URL is correct - make sure to use the full URL
-      const response = await fetch(`${apiUrl}/api/generate-multi`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          stake, 
-          winAmount: winAmountValue,
-          alternatives: 3 // Request up to 3 alternatives per player position
-        }),
-        signal: controller.signal
+      console.log("🔌 Attempting to connect to backend at:", apiUrl);
+      
+      // Log frontend details
+      console.log("🖥️ Frontend environment:", {
+        nodeEnv: process.env.NODE_ENV,
+        nextPublicApiUrl: process.env.NEXT_PUBLIC_API_URL,
+        useLocalFallback: !process.env.NEXT_PUBLIC_API_URL
       });
+      
+      console.log("📦 Sending data:", { 
+        stake: stakeValue, 
+        winAmount: winAmountValue,
+        sportType: sportTypeValue,
+        alternatives: 3
+      });
+      
+      let response;
+      try {
+        // First try with the primary URL
+        console.log(`🔄 Sending POST request to ${apiUrl}/api/generate-multi`);
+        response = await fetch(`${apiUrl}/api/generate-multi`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ 
+            stake: stakeValue, 
+            winAmount: winAmountValue,
+            sportType: sportTypeValue,
+            alternatives: 3
+          }),
+          signal: controller.signal
+        });
+      } catch (fetchError) {
+        console.error("❌ Primary fetch failed:", fetchError);
+        
+        // If we're using an environment variable that failed, try localhost as a fallback
+        if (process.env.NEXT_PUBLIC_API_URL && process.env.NODE_ENV === 'development') {
+          console.log("🔄 Trying localhost fallback...");
+          controller.abort(); // Abort the previous request
+          
+          // Create a new abort controller for the fallback request
+          const fallbackController = new AbortController();
+          
+          response = await fetch(`http://localhost:5001/api/generate-multi`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ 
+              stake: stakeValue, 
+              winAmount: winAmountValue,
+              sportType: sportTypeValue,
+              alternatives: 3
+            }),
+            signal: fallbackController.signal
+          });
+        } else {
+          // Re-throw if we can't try a fallback
+          throw fetchError;
+        }
+      }
       
       // Clear the timeout since we got a response
       clearTimeout(timeoutId);
+      
+      console.log("🔄 Response status:", response.status, response.statusText);
+      console.log("🔄 Response headers:", Object.fromEntries([...response.headers.entries()]));
 
-      const data = await response.json();
+      // Try to parse JSON, but handle potential parsing errors
+      let data;
+      try {
+        const text = await response.text();
+        console.log("🔄 Raw response text:", text.substring(0, 300) + (text.length > 300 ? '...' : ''));
+        
+        // Parse the text to JSON
+        try {
+          data = JSON.parse(text);
+          console.log("📊 Parsed data:", data);
+        } catch (jsonError) {
+          console.error("❌ JSON parsing error:", jsonError);
+          throw new Error(`Failed to parse server response: ${jsonError}. Raw response: ${text.substring(0, 100)}`);
+        }
+      } catch (parseError) {
+        console.error("❌ Response text error:", parseError);
+        throw new Error(`Failed to read server response: ${parseError}`);
+      }
 
       if (!response.ok) {
-         setError(data.message || data.error || `Error: ${response.statusText}`);
+         const errorMsg = data?.message || data?.error || `Error: ${response.statusText}`;
+         console.error("❌ API error:", errorMsg);
+         setError(errorMsg);
          setMultiResult(null);
       } else {
         // Handle different API formats for backward compatibility
@@ -72,16 +130,19 @@ export default function MultiBuilderPage() {
         // New format with combination and playerAlternatives
         if (data.combination) {
           // Already in the right format, use as is
+          console.log("✅ Using new API format with combination");
           setMultiResult(data);
         }
         // Old format with mainCombination and alternatives
         else if (data.mainCombination) {
           // Keep as is for backward compatibility
+          console.log("✅ Using compatibility format with mainCombination");
           setMultiResult(data);
         }
         // Very old format with just legs
         else if (data.legs) {
           // Convert to the new format 
+          console.log("✅ Converting from legacy format with legs");
           data.combination = {
             legs: data.legs,
             achievedOdds: data.achievedOdds || 0,
@@ -93,19 +154,20 @@ export default function MultiBuilderPage() {
         }
         // Unexpected format
         else {
+          console.warn("⚠️ Received unexpected data format:", data);
           setMultiResult(data);
         }
         
         setError(null);
       }
     } catch (err: Error | unknown) {
-      console.error("API call failed:", err);
+      console.error("❌ API call failed:", err);
       // Check if this was a timeout error
       if (err && typeof err === 'object' && 'name' in err && err.name === 'AbortError') {
         setError('The request took too long to complete. Try with different values or try again later.');
       } else {
         const errorMessage = err && typeof err === 'object' && 'message' in err ? err.message : 'Unknown error';
-        setError(`Failed to connect to the backend: ${errorMessage}. Is it running?`);
+        setError(`Failed to connect to the backend: ${errorMessage}. Please check that the backend API is running and accessible.`);
       }
       setMultiResult(null);
     } finally {
@@ -113,94 +175,68 @@ export default function MultiBuilderPage() {
     }
   };
 
-  const handleBack = () => {
-    setError(null); // Clear errors when going back
-    if (currentStage === 2) {
-      setCurrentStage(1);
-    } else if (currentStage === 3) {
-       // Decide if going back from results should go to stage 1 or 2
-       setCurrentStage(2); // Go back to edit win amount
-       setMultiResult(null); // Clear result when going back
-    }
-  };
-
-   const handleRestart = () => {
-       setStake(null);
-       setWinAmount(null);
-       setError(null);
-       setMultiResult(null);
-       setIsLoading(false);
-       setCurrentStage(1);
-   }
-
   // Handle swapping a player in the multi
   const handleMultiSwap = (updatedResult: MultiResult) => {
     setMultiResult(updatedResult);
     setError(null);
   };
 
-  // Framer Motion Variants for smooth transitions
-  const variants = {
-    enter: (direction: number) => ({
-      x: direction > 0 ? 1000 : -1000,
-      opacity: 0,
-    }),
-    center: {
-      zIndex: 1,
-      x: 0,
-      opacity: 1,
-    },
-    exit: (direction: number) => ({
-      zIndex: 0,
-      x: direction < 0 ? 1000 : -1000,
-      opacity: 0,
-    }),
+  const handleRestart = () => {
+    setStake(null);
+    setWinAmount(null);
+    setError(null);
+    setMultiResult(null);
+    setIsLoading(false);
+  }
+
+  // Get title based on sport type
+  const getTitle = () => {
+    switch(sportType) {
+      case 'afl':
+        return 'AFL Multi Builder';
+      case 'combined':
+        return 'AFL & NRL Multi Builder';
+      case 'nrl':
+      default:
+        return 'NRL Multi Builder';
+    }
   };
 
-  // Determine animation direction
-  // This simple example assumes forward is always stage n -> n+1
-  // A more robust solution might track the previous stage
-  const direction = 1; // Assuming forward motion for simplicity here
-
   return (
-    <div className="flex justify-center items-center min-h-screen bg-background p-4">
-      <div className="w-full max-w-md relative overflow-hidden"> {/* Remove h-[400px] fixed height */}
-        <AnimatePresence initial={false} custom={direction}>
-          <motion.div
-            key={currentStage}
-            custom={direction}
-            variants={variants}
-            initial="enter"
-            animate="center"
-            exit="exit"
-            transition={{
-              x: { type: 'spring', stiffness: 300, damping: 30 },
-              opacity: { duration: 0.2 },
-            }}
-            className="w-full" // Remove absolute positioning
-          >
-            {currentStage === 1 && (
-              <Stage1 onSubmit={handleStage1Submit} />
-            )}
-            {currentStage === 2 && stake !== null && (
-              <Stage2
-                stake={stake}
-                onSubmit={handleStage2Submit}
-                onBack={handleBack}
-              />
-            )}
-            {currentStage === 3 && stake !== null && winAmount !== null && (
-              <Stage3
-                isLoading={isLoading}
-                error={error}
-                result={multiResult}
-                onBack={handleBack}
-                onRestart={handleRestart}
-                onSwap={handleMultiSwap}
-              />
-            )}
-          </motion.div>
-        </AnimatePresence>
+    <div className="flex flex-col justify-center items-center min-h-screen bg-background p-4">
+      <h1 className="text-2xl font-bold text-foreground mb-6">{getTitle()}</h1>
+      
+      {/* Main layout - side by side on larger screens, stacked on mobile */}
+      <div className="w-full max-w-7xl grid grid-cols-1 lg:grid-cols-5 gap-6">
+        {/* Left side: Input form - now takes 2/5 of the space instead of 1/2 */}
+        <div className="lg:col-span-2">
+          <Stage1And2 
+            onSubmit={handleCombinedSubmit}
+            isLoading={isLoading}
+          />
+        </div>
+        
+        {/* Right side: Results - now takes 3/5 of the space instead of 1/2 */}
+        <div className="lg:col-span-3">
+          {multiResult || error || isLoading ? (
+            <Stage3
+              isLoading={isLoading}
+              error={error}
+              result={multiResult}
+              onBack={handleRestart}
+              onRestart={handleRestart}
+              onSwap={handleMultiSwap}
+            />
+          ) : (
+            <div className="flex flex-col items-center justify-center h-full bg-card border border-primary/20 rounded-lg p-8 text-center">
+              <div className="text-5xl mb-4">📊</div>
+              <h3 className="text-xl font-semibold text-foreground">Your Multi Results</h3>
+              <p className="text-muted-foreground mt-2">
+                Fill out the form on the left and click "Generate Multi" to see your results here.
+              </p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

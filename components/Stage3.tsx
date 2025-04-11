@@ -13,9 +13,10 @@ interface Leg {
     gameDescription: string;
     playerId: string;
     playerName: string;
-    market: 'ATS' | '2+'; // Use specific market types
+    market: 'ATS' | '2+' | '2GS' | 'AGS'; // Updated to include all market types
     odds: number;
     team?: string; // Optional team name
+    sport?: string; // Optional sport type
 }
 
 // Define the structure of an alternative player
@@ -147,7 +148,8 @@ export default function Stage3({ isLoading, error, result, onBack, onRestart, on
       playerName: alternative.playerName,
       market: alternative.market,
       odds: alternative.odds,
-      team: alternative.team
+      team: alternative.team,
+      sport: alternative.sport
     };
     
     // Create updated result object
@@ -225,7 +227,10 @@ export default function Stage3({ isLoading, error, result, onBack, onRestart, on
                             <span>
                                 <span className="font-semibold text-foreground">{leg.playerName}</span> 
                                 <span className="ml-1 text-xs px-1.5 py-0.5 rounded bg-primary/10 text-primary">
-                                    {leg.market === 'ATS' ? 'Anytime Try' : '2+ Tries'}
+                                    {leg.market === 'ATS' ? 'Anytime Try' : 
+                                     leg.market === 'AGS' ? 'Anytime Goal' :
+                                     leg.sport === 'AFL' ? '2+ Goals' : 
+                                     leg.market === '2GS' ? '2+ Goals' : '2+ Tries'}
                                 </span>
                                 <br/>
                                 <span className='text-xs text-muted-foreground'>
@@ -264,7 +269,10 @@ export default function Stage3({ isLoading, error, result, onBack, onRestart, on
                                       <span>
                                         <span className="font-medium text-foreground">{alt.playerName}</span>
                                         <span className="ml-1 px-1 py-0.5 rounded bg-primary/10 text-primary text-[10px]">
-                                          {alt.market === 'ATS' ? 'Anytime Try' : '2+ Tries'}
+                                          {alt.market === 'ATS' ? 'Anytime Try' : 
+                                           alt.market === 'AGS' ? 'Anytime Goal' :
+                                           alt.sport === 'AFL' ? '2+ Goals' : 
+                                           alt.market === '2GS' ? '2+ Goals' : '2+ Tries'}
                                         </span>
                                       </span>
                                       <div className="flex flex-col items-end">
@@ -305,32 +313,24 @@ export default function Stage3({ isLoading, error, result, onBack, onRestart, on
   };
 
   return (
-    <Card className="flex flex-col bg-card border-primary/20 shadow-lg">
+    <Card className="flex flex-col bg-card border-primary/20 shadow-lg h-full">
       <CardHeader className="bg-card border-b border-primary/10">
-        <CardTitle className="text-foreground">Stage 3: Your Generated Multi</CardTitle>
+        <CardTitle className="text-foreground">Your Generated Multi</CardTitle>
         <CardDescription className="text-muted-foreground">
           {isLoading ? "Calculating..." : (error || (result && getMainLegs().length === 0)) ? "Result" : "Here's a multi matching your request:"}
         </CardDescription>
       </CardHeader>
-      <CardContent className="flex-grow flex flex-col pt-6">
+      <CardContent className="flex-grow flex flex-col pt-6 overflow-auto">
         {renderContent()}
       </CardContent>
-      <CardFooter className="mt-auto flex justify-between">
-        <Button 
-          variant="outline" 
-          onClick={onBack} 
-          disabled={isLoading} 
-          className="border-primary/30 hover:bg-primary/10 text-foreground disabled:opacity-50"
-        >
-          Back
-        </Button>
+      <CardFooter className="mt-auto flex justify-end">
         <Button 
           variant="secondary" 
           onClick={onRestart} 
           disabled={isLoading}
           className="bg-secondary text-secondary-foreground hover:bg-secondary/90 disabled:opacity-50"
         >
-          Start Over
+          Clear Results
         </Button>
       </CardFooter>
     </Card>
