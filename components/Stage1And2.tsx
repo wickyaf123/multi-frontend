@@ -75,11 +75,11 @@ export default function Stage1And2({ onSubmit, isLoading }: Stage1And2Props) {
               >
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="nrl" id="nrl" />
-                  <Label htmlFor="nrl" className="font-normal cursor-pointer">NRL (Rugby - Tries)</Label>
+                  <Label htmlFor="nrl" className="font-normal cursor-pointer">NRL</Label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="afl" id="afl" />
-                  <Label htmlFor="afl" className="font-normal cursor-pointer">AFL (Football - Anytime/2+ Goals)</Label>
+                  <Label htmlFor="afl" className="font-normal cursor-pointer">AFL</Label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="combined" id="combined" />
