@@ -54,91 +54,96 @@ export default function Stage1And2({ onSubmit, isLoading }: Stage1And2Props) {
   };
 
   return (
-    <Card className="flex flex-col bg-card border-primary/20 shadow-lg h-full">
-      <CardHeader className="bg-card border-b border-primary/10">
-        <CardTitle className="text-foreground">Build Your Multi</CardTitle>
-        <CardDescription className="text-muted-foreground">
+    <Card className="bg-card border-primary/20 shadow-lg w-full max-w-md">
+      <CardHeader className="bg-card border-b border-primary/10 py-1 px-4">
+        <CardTitle className="text-foreground text-lg">Build Your Multi</CardTitle>
+        <CardDescription className="text-muted-foreground text-sm">
           Enter your stake and desired win amount
         </CardDescription>
       </CardHeader>
-      <CardContent className="flex-grow pt-6">
-        <form onSubmit={handleSubmit}>
-          <div className="grid w-full items-center gap-6">
-            {/* Sport Selection */}
-            <div className="flex flex-col space-y-3">
-              <Label htmlFor="sportType" className="text-foreground">Select Sport</Label>
+      <CardContent className="pt-1 pb-3 px-4 space-y-2">
+        <form onSubmit={handleSubmit} className="space-y-3">
+          {/* Sport Selection - inline layout */}
+          <div className="mt-0">
+            <Label htmlFor="sportType" className="text-foreground text-sm mb-1 block">Select Sport</Label>
+            <div className="flex flex-row space-x-4">
               <RadioGroup
                 defaultValue="nrl"
                 value={sportType}
                 onValueChange={(value) => setSportType(value as SportType)}
-                className="flex flex-col space-y-1"
+                className="flex flex-row gap-3"
               >
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-1">
                   <RadioGroupItem value="nrl" id="nrl" />
                   <Label htmlFor="nrl" className="font-normal cursor-pointer">NRL</Label>
                 </div>
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-1">
                   <RadioGroupItem value="afl" id="afl" />
                   <Label htmlFor="afl" className="font-normal cursor-pointer">AFL</Label>
                 </div>
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-1">
                   <RadioGroupItem value="combined" id="combined" />
-                  <Label htmlFor="combined" className="font-normal cursor-pointer">Combined (NRL + AFL)</Label>
+                  <Label htmlFor="combined" className="font-normal cursor-pointer">Combined</Label>
                 </div>
               </RadioGroup>
-              {sportType === 'combined' && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  Combined mode allows up to 17 players from both sports
-                </p>
-              )}
             </div>
-            
+            {sportType === 'combined' && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Combined mode allows up to 17 players from both sports
+              </p>
+            )}
+          </div>
+          
+          {/* Stake and Win Amount side by side */}
+          <div className="grid grid-cols-2 gap-3">
             {/* Stake Input */}
-            <div className="flex flex-col space-y-1.5">
-              <Label htmlFor="stake" className="text-foreground">Stake Amount ($)</Label>
+            <div>
+              <Label htmlFor="stake" className="text-foreground text-sm mb-1 block">Stake Amount ($)</Label>
               <Input
                 id="stake"
                 type="number"
-                placeholder="e.g., 10"
+                placeholder="10"
                 value={stakeStr}
                 onChange={(e) => setStakeStr(e.target.value)}
                 min="0.01"
                 step="0.01"
                 required
-                className="bg-input border-border text-foreground focus:border-primary"
+                className="bg-input border-border text-foreground focus:border-primary h-9"
               />
             </div>
             
             {/* Win Amount Input */}
-            <div className="flex flex-col space-y-1.5">
-              <Label htmlFor="winAmount" className="text-foreground">Desired Win Amount ($)</Label>
+            <div>
+              <Label htmlFor="winAmount" className="text-foreground text-sm mb-1 block">Desired Win Amount ($)</Label>
               <Input
                 id="winAmount"
                 type="number"
-                placeholder="e.g., 100"
+                placeholder="100"
                 value={winAmountStr}
                 onChange={(e) => setWinAmountStr(e.target.value)}
                 min={parseFloat(stakeStr) > 0 ? parseFloat(stakeStr) + 0.01 : undefined}
                 step="0.01"
                 required
-                className="bg-input border-border text-foreground focus:border-primary"
+                className="bg-input border-border text-foreground focus:border-primary h-9"
               />
             </div>
-            
-            {/* Display implied odds */}
-            <div className="bg-secondary/10 p-3 rounded-md mt-2">
-              <p className="text-sm text-muted-foreground mb-1">Target Odds:</p>
+          </div>
+          
+          {/* Display implied odds */}
+          <div className="bg-secondary/10 p-2 rounded-md">
+            <div className="flex justify-between items-center">
+              <p className="text-sm text-muted-foreground">Target Odds:</p>
               <p className="text-xl font-mono text-primary">{calculateImpliedOdds()}x</p>
             </div>
-            
-            {error && <p className="text-sm text-destructive">{error}</p>}
           </div>
+          
+          {error && <p className="text-sm text-destructive">{error}</p>}
         </form>
       </CardContent>
-      <CardFooter className="mt-auto">
+      <CardFooter className="py-2 px-4">
         <Button 
           onClick={handleSubmit} 
-          className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
+          className="w-full bg-primary hover:bg-primary/90 text-primary-foreground h-9"
           disabled={isLoading}
         >
           {isLoading ? "Generating..." : "Generate Multi"}
