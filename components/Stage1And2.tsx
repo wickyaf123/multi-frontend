@@ -10,7 +10,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 export type SportType = 'nrl' | 'afl' | 'combined';
 
 interface Stage1And2Props {
-  onSubmit: (stake: number, winAmount: number, sportType: SportType) => void;
+  onSubmit: (stake: number, winAmount: number, sportType: SportType, maxOddsPerLeg?: number) => void;
   isLoading: boolean;
 }
 
@@ -18,6 +18,7 @@ export default function Stage1And2({ onSubmit, isLoading }: Stage1And2Props) {
   const [stakeStr, setStakeStr] = useState('');
   const [winAmountStr, setWinAmountStr] = useState('');
   const [sportType, setSportType] = useState<SportType>('nrl');
+  const [maxOddsPerLegStr, setMaxOddsPerLegStr] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -37,8 +38,18 @@ export default function Stage1And2({ onSubmit, isLoading }: Stage1And2Props) {
       return;
     }
     
+    // Validate max odds per leg (optional)
+    let maxOddsPerLegNum: number | undefined = undefined;
+    if (maxOddsPerLegStr.trim() !== '') {
+      maxOddsPerLegNum = parseFloat(maxOddsPerLegStr);
+      if (isNaN(maxOddsPerLegNum) || maxOddsPerLegNum <= 0) {
+        setError('Please enter a valid max odds per leg greater than 0, or leave it empty.');
+        return;
+      }
+    }
+    
     setError(null);
-    onSubmit(stakeNum, winAmountNum, sportType);
+    onSubmit(stakeNum, winAmountNum, sportType, maxOddsPerLegNum);
   };
 
   // Calculate implied odds (if both fields are valid)
@@ -127,6 +138,24 @@ export default function Stage1And2({ onSubmit, isLoading }: Stage1And2Props) {
                 className="bg-input border-border text-foreground focus:border-primary h-9"
               />
             </div>
+          </div>
+          
+          {/* Max Odds Per Leg Input */}
+          <div>
+            <Label htmlFor="maxOddsPerLeg" className="text-foreground text-sm mb-1 block">Max Odds Per Leg (Optional)</Label>
+            <Input
+              id="maxOddsPerLeg"
+              type="number"
+              placeholder="e.g. 4.0"
+              value={maxOddsPerLegStr}
+              onChange={(e) => setMaxOddsPerLegStr(e.target.value)}
+              min="0.01"
+              step="0.01"
+              className="bg-input border-border text-foreground focus:border-primary h-9"
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Limit the maximum odds for any single player in your multi
+            </p>
           </div>
           
           {/* Display implied odds */}

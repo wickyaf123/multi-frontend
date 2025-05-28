@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
-import { Terminal, ChevronDown, ChevronUp } from "lucide-react"; 
+import { Terminal, ChevronDown, ChevronUp, Share2 } from "lucide-react"; 
+import html2canvas from 'html2canvas';
 
 // Define the structure of a single leg
 interface Leg {
@@ -17,12 +18,22 @@ interface Leg {
     odds: number;
     team?: string; // Optional team name
     sport?: string; // Optional sport type
+    position?: string; // Player position
+    positionStats?: {
+        tries_scored_per_game: number;
+        tries_conceded_per_game: number;
+        scoring_rate: number;
+        defensive_vulnerability: number;
+    };
 }
 
 // Define the structure of an alternative player
 interface PlayerAlternative extends Leg {
     newMultiOdds: number;
     newPotentialWin: number;
+    playerScore?: number; // Position-based player score
+    performanceTags?: string[]; // Performance indicators and tags
+    recommendationRank?: number; // Recommendation rank (1-5, where 1 is best)
 }
 
 // Define the structure of a combination
@@ -37,14 +48,17 @@ export interface MultiResult {
     message: string;
     targetOdds: number;
     stake?: number;
+    sportType?: string; // Added sportType for consistency with API response
     
-    // New API format with player alternatives
-    combination?: Combination;
+    // Changed to an array of combinations
+    combinations?: Combination[]; 
     playerAlternatives?: Record<string, PlayerAlternative[]>;
+    fingerprintScore?: number; // Added for fingerprint score
     
-    // Backward compatibility with previous versions
-    mainCombination?: Combination;
-    alternatives?: Combination[];
+    // Backward compatibility with previous versions (might need review based on new structure)
+    // For now, we assume the new API will always send `combinations` if successful.
+    // These could be removed if backend guarantees new format only.
+    mainCombination?: Combination; // Keep for potential old data or direct single display
     legs?: Leg[];
     achievedOdds?: number;
     potentialWin?: number;
@@ -62,64 +76,67 @@ interface Stage3Props {
 export default function Stage3({ isLoading, error, result, onBack, onRestart, onSwap }: Stage3Props) {
   // State for managing alternatives
   const [expandedPosition, setExpandedPosition] = useState<number | null>(null);
+  const multiCardRef = useRef<HTMLDivElement>(null);
+  const [selectedMultiIndex, setSelectedMultiIndex] = useState<number>(0); // To track which multi to display
+  const [isSharing, setIsSharing] = useState<boolean>(false); // State for share loading
+  const [swapHistory, setSwapHistory] = useState<Array<{from: string, to: string, position: number}>>([]);
+  const [swappingPosition, setSwappingPosition] = useState<number | null>(null); // Track which position is being swapped
+  const [isSwapping, setIsSwapping] = useState<boolean>(false); // Global swap state
+
+  useEffect(() => {
+    // Reset selected multi index if the result is cleared or combinations change structure
+    if (!result || !result.combinations || result.combinations.length === 0) {
+      setSelectedMultiIndex(0);
+    }
+    // Also reset if the number of combinations changes and current index is out of bounds
+    if (result && result.combinations && selectedMultiIndex >= result.combinations.length) {
+      setSelectedMultiIndex(0);
+    }
+  }, [result, selectedMultiIndex]); // Depend on result object and its combinations
+
+  // Get the current combination to display
+  const getCurrentCombination = (): Combination | null => {
+    if (!result || !result.combinations || result.combinations.length === 0) {
+        // Fallback for older structure or if combinations is empty
+        if (result?.mainCombination) return result.mainCombination;
+        if (result?.legs && typeof result.achievedOdds === 'number' && typeof result.potentialWin === 'number') {
+            return { legs: result.legs, achievedOdds: result.achievedOdds, potentialWin: result.potentialWin };
+        }
+        return null;
+    }
+    return result.combinations[selectedMultiIndex] || null;
+  };
 
   // Get the main combination legs
   const getMainLegs = (): Leg[] => {
-    if (!result) return [];
-    
-    // Handle the new API format
-    if (result.combination) {
-      return result.combination.legs;
-    }
-    
-    // Handle the previous format with mainCombination
-    if (result.mainCombination) {
-      return result.mainCombination.legs;
-    }
-    
-    // Backward compatibility with old format
-    return result.legs || [];
+    const currentCombination = getCurrentCombination();
+    return currentCombination?.legs || [];
   };
   
   // Get main combination odds
   const getMainOdds = (): number => {
-    if (!result) return 0;
-    
-    // Handle the new API format
-    if (result.combination) {
-      return result.combination.achievedOdds;
-    }
-    
-    // Handle the previous format with mainCombination
-    if (result.mainCombination) {
-      return result.mainCombination.achievedOdds;
-    }
-    
-    // Backward compatibility with old format
-    return result.achievedOdds || 0;
+    const currentCombination = getCurrentCombination();
+    return currentCombination?.achievedOdds || 0;
   };
   
   // Get main combination potential win
   const getMainPotentialWin = (): number => {
-    if (!result) return 0;
-    
-    // Handle the new API format
-    if (result.combination) {
-      return result.combination.potentialWin;
-    }
-    
-    // Handle the previous format with mainCombination
-    if (result.mainCombination) {
-      return result.mainCombination.potentialWin;
-    }
-    
-    // Backward compatibility with old format
-    return result.potentialWin || 0;
+    const currentCombination = getCurrentCombination();
+    return currentCombination?.potentialWin || 0;
   };
   
-  // Get player alternatives
+  // Get player alternatives - These are associated with the first multi as per backend change
+  // Or if we adapt onSwap, it should handle alternatives for the *currently selected* multi if API supports it.
+  // For now, playerAlternatives in MultiResult are for the first multi from the backend.
+  // The onSwap logic needs to be aware of this if it tries to apply alternatives to other multis.
   const getPlayerAlternatives = (position: number): PlayerAlternative[] => {
+    // If we are viewing a multi other than the first, alternatives might not be applicable
+    // unless the backend/onSwap is designed to handle this.
+    // For now, let's assume alternatives always refer to the first multi, or the one they were fetched for.
     if (!result || !result.playerAlternatives) return [];
+    // If selectedMultiIndex > 0, and alternatives are only for the first one, this might be misleading.
+    // This needs careful handling if `onSwap` is to work for secondary multis.
+    // Current backend sends alternatives only for the *first* of the distinct_multis.
     return result.playerAlternatives[position.toString()] || [];
   };
   
@@ -132,13 +149,29 @@ export default function Stage3({ isLoading, error, result, onBack, onRestart, on
     }
   };
   
-  // Handle swapping a player in the multi
-  const handleSwapPlayer = (position: number, alternative: PlayerAlternative) => {
-    // Only proceed if we have a valid result and position
-    if (!result || !result.combination) return;
-    
-    // Create a copy of the legs
-    const newLegs = [...result.combination.legs];
+  // Enhanced swap handler with history tracking and transitions
+  const handleSwapPlayer = async (position: number, alternative: PlayerAlternative) => {
+    const currentCombination = getCurrentCombination();
+    if (!result || !currentCombination || !result.combinations || isSwapping) return;
+
+    // Start swap animation
+    setIsSwapping(true);
+    setSwappingPosition(position);
+
+    // Add a small delay for visual feedback
+    await new Promise(resolve => setTimeout(resolve, 300));
+
+    // Track the swap
+    const originalPlayer = currentCombination.legs[position];
+    const swapRecord = {
+      from: originalPlayer.playerName,
+      to: alternative.playerName,
+      position: position + 1
+    };
+    setSwapHistory(prev => [...prev, swapRecord]);
+
+    // Create a copy of the legs for the *currently selected* multi
+    const newLegs = [...currentCombination.legs];
     
     // Replace the player at the specified position
     newLegs[position] = {
@@ -149,190 +182,681 @@ export default function Stage3({ isLoading, error, result, onBack, onRestart, on
       market: alternative.market,
       odds: alternative.odds,
       team: alternative.team,
-      sport: alternative.sport
+      sport: alternative.sport,
+      position: alternative.position,
+      positionStats: alternative.positionStats
     };
+    
+    // Create an updated Combination object for the current multi
+    const updatedSingleCombination: Combination = {
+        legs: newLegs,
+        achievedOdds: alternative.newMultiOdds,
+        potentialWin: alternative.newPotentialWin
+    };
+
+    // Create a new list of combinations, replacing the one at selectedMultiIndex
+    const updatedCombinations = [...result.combinations];
+    updatedCombinations[selectedMultiIndex] = updatedSingleCombination;
     
     // Create updated result object
     const updatedResult: MultiResult = {
       ...result,
-      combination: {
-        legs: newLegs,
-        achievedOdds: alternative.newMultiOdds,
-        potentialWin: alternative.newPotentialWin
-      }
+      combinations: updatedCombinations,
+      playerAlternatives: result.playerAlternatives
     };
-    
-    // Update alternatives - remove the selected one from the position
+
     if (updatedResult.playerAlternatives) {
       const positionKey = position.toString();
       const currentAlts = updatedResult.playerAlternatives[positionKey] || [];
       
-      // Filter out the selected alternative
       updatedResult.playerAlternatives[positionKey] = currentAlts.filter(
         alt => alt.playerId !== alternative.playerId || alt.market !== alternative.market
       );
       
-      // If the position has no more alternatives, remove it
       if (updatedResult.playerAlternatives[positionKey].length === 0) {
         delete updatedResult.playerAlternatives[positionKey];
       }
     }
     
-    // Call the onSwap callback with the updated result
     onSwap(updatedResult);
-    
-    // Close the expanded position
     setExpandedPosition(null);
+    
+    // End swap animation
+    setTimeout(() => {
+      setIsSwapping(false);
+      setSwappingPosition(null);
+    }, 200);
+  };
+
+  const handleShare = async () => {
+    if (!multiCardRef.current || isSharing) return;
+
+    setIsSharing(true);
+    try {
+      // Show loading state (you could add a loading indicator here)
+      console.log("Taking screenshot...");
+      
+      // Configure html2canvas for better quality
+      const canvas = await html2canvas(multiCardRef.current, {
+        scale: 2, // Higher resolution
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff'
+      } as any);
+      
+      const image = canvas.toDataURL("image/png", 1.0); // Maximum quality
+      
+      // Check if Web Share API is supported and files can be shared
+      if (navigator.share && navigator.canShare) {
+        try {
+        const response = await fetch(image);
+        const blob = await response.blob();
+        const file = new File([blob], 'multi-screenshot.png', { type: 'image/png' });
+
+          const shareData = {
+          title: 'My Generated Multi',
+            text: `Check out this multi I generated! Target odds: ${result?.targetOdds.toFixed(2)}x, Potential win: $${getMainPotentialWin().toFixed(2)}`,
+          files: [file],
+          };
+
+          // Check if the data can be shared
+          if (navigator.canShare(shareData)) {
+            await navigator.share(shareData);
+            console.log("Multi shared successfully!");
+          } else {
+            // Fallback to download if files can't be shared
+            throw new Error("Files cannot be shared on this device");
+          }
+        } catch (shareError) {
+          console.log("Web Share failed, falling back to download:", shareError);
+          // Fallback to download
+          downloadImage(image);
+        }
+      } else {
+        // Fallback for browsers that don't support Web Share API
+        console.log("Web Share API not supported, downloading image");
+        downloadImage(image);
+      }
+    } catch (err) {
+      console.error("Error taking screenshot:", err);
+      // You could show a toast notification here
+      alert("Sorry, there was an error taking the screenshot. Please try again.");
+    } finally {
+      setIsSharing(false);
+    }
+  };
+
+  // Helper function to download the image
+  const downloadImage = (imageDataUrl: string) => {
+    const link = document.createElement('a');
+    link.href = imageDataUrl;
+    link.download = `multi-screenshot-${new Date().getTime()}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    console.log("Multi screenshot downloaded!");
+  };
+
+  // Helper function to format position name for display
+  const formatPosition = (position: string): string => {
+    const positionMap: Record<string, string> = {
+      'FLB': 'Fullback',
+      'LW': 'Left Wing',
+      'RW': 'Right Wing',
+      'LC': 'Left Centre',
+      'RC': 'Right Centre',
+      'LHLF': 'Left Half',
+      'RHLF': 'Right Half',
+      'HOK': 'Hooker',
+      'L2RF': 'Left 2nd Row',
+      'R2RF': 'Right 2nd Row',
+      'MID': 'Middle Forward'
+    };
+    return positionMap[position] || position;
+  };
+
+  // Helper function to get position color for visual distinction
+  const getPositionColor = (position: string): string => {
+    const colorMap: Record<string, string> = {
+      'FLB': 'bg-blue-100 text-blue-800',
+      'LW': 'bg-green-100 text-green-800',
+      'RW': 'bg-green-100 text-green-800',
+      'LC': 'bg-purple-100 text-purple-800',
+      'RC': 'bg-purple-100 text-purple-800',
+      'LHLF': 'bg-yellow-100 text-yellow-800',
+      'RHLF': 'bg-yellow-100 text-yellow-800',
+      'HOK': 'bg-red-100 text-red-800',
+      'L2RF': 'bg-orange-100 text-orange-800',
+      'R2RF': 'bg-orange-100 text-orange-800',
+      'MID': 'bg-gray-100 text-gray-800'
+    };
+    return colorMap[position] || 'bg-gray-100 text-gray-800';
+  };
+
+  // Helper function to render circular strength indicators
+  const renderCircularStrengthBars = (positionStats: any, size: 'large' | 'small' = 'large') => {
+    if (!positionStats) return null;
+
+    const scoringPercentage = Math.min((positionStats.scoring_rate / 2.0) * 100, 100);
+    const concededPercentage = Math.min((positionStats.defensive_vulnerability / 2.0) * 100, 100);
+    
+    const circleSize = size === 'large' ? 48 : 32;
+    const strokeWidth = size === 'large' ? 4 : 3;
+    const radius = (circleSize - strokeWidth) / 2;
+    const circumference = radius * 2 * Math.PI;
+    
+    const scoringOffset = circumference - (scoringPercentage / 100) * circumference;
+    const concededOffset = circumference - (concededPercentage / 100) * circumference;
+
+    return (
+      <div className={`flex ${size === 'large' ? 'flex-col gap-3' : 'flex-row gap-2'} items-center`}>
+        {/* Scored Circle */}
+        <div className="flex flex-col items-center">
+          <div className="relative">
+            <svg width={circleSize} height={circleSize} className="transform -rotate-90">
+              {/* Background circle */}
+              <circle
+                cx={circleSize / 2}
+                cy={circleSize / 2}
+                r={radius}
+                stroke="#e5e7eb"
+                strokeWidth={strokeWidth}
+                fill="transparent"
+              />
+              {/* Progress circle */}
+              <circle
+                cx={circleSize / 2}
+                cy={circleSize / 2}
+                r={radius}
+                stroke="#10b981"
+                strokeWidth={strokeWidth}
+                fill="transparent"
+                strokeDasharray={circumference}
+                strokeDashoffset={scoringOffset}
+                strokeLinecap="round"
+                className="transition-all duration-500 ease-in-out"
+              />
+            </svg>
+            <div className={`absolute inset-0 flex items-center justify-center ${size === 'large' ? 'text-xs' : 'text-xs'} font-bold text-green-600`}>
+              {positionStats.scoring_rate.toFixed(1)}
+            </div>
+          </div>
+          <span className={`${size === 'large' ? 'text-xs' : 'text-xs'} text-muted-foreground mt-1`}>Scored</span>
+        </div>
+
+        {/* Conceded Circle */}
+        <div className="flex flex-col items-center">
+          <div className="relative">
+            <svg width={circleSize} height={circleSize} className="transform -rotate-90">
+              {/* Background circle */}
+              <circle
+                cx={circleSize / 2}
+                cy={circleSize / 2}
+                r={radius}
+                stroke="#e5e7eb"
+                strokeWidth={strokeWidth}
+                fill="transparent"
+              />
+              {/* Progress circle */}
+              <circle
+                cx={circleSize / 2}
+                cy={circleSize / 2}
+                r={radius}
+                stroke="#ef4444"
+                strokeWidth={strokeWidth}
+                fill="transparent"
+                strokeDasharray={circumference}
+                strokeDashoffset={concededOffset}
+                strokeLinecap="round"
+                className="transition-all duration-500 ease-in-out"
+              />
+            </svg>
+            <div className={`absolute inset-0 flex items-center justify-center ${size === 'large' ? 'text-xs' : 'text-xs'} font-bold text-red-600`}>
+              {positionStats.defensive_vulnerability.toFixed(1)}
+            </div>
+          </div>
+          <span className={`${size === 'large' ? 'text-xs' : 'text-xs'} text-muted-foreground mt-1`}>Conceded</span>
+        </div>
+      </div>
+    );
+  };
+
+  // Helper function to render compact position stats with strength bars
+  const renderCompactPositionStats = (leg: Leg) => {
+    if (!leg.positionStats) return null;
+
+    const stats = leg.positionStats;
+    
+    // Normalize values for bar display (assuming max values for scaling)
+    const maxScoring = 2.0; // Adjust based on your data range
+    const maxConceded = 2.0; // Adjust based on your data range
+    
+    const scoringPercentage = Math.min((stats.scoring_rate / maxScoring) * 100, 100);
+    const concededPercentage = Math.min((stats.defensive_vulnerability / maxConceded) * 100, 100);
+
+    return (
+      <div className="text-xs bg-muted/30 rounded px-2 py-1.5 space-y-2">
+        {/* Scored Bar */}
+        <div className="flex items-center gap-2">
+          <span className="text-muted-foreground w-16 text-right shrink-0">Scored:</span>
+          <div className="flex-1 bg-gray-200 rounded-full h-2 min-w-0">
+            <div 
+              className="bg-green-500 h-2 rounded-full transition-all duration-300"
+              style={{ width: `${scoringPercentage}%` }}
+            ></div>
+          </div>
+          <span className="font-medium text-green-600 w-8 text-xs shrink-0">
+            {stats.scoring_rate.toFixed(1)}
+          </span>
+        </div>
+        
+        {/* Conceded Bar */}
+        <div className="flex items-center gap-2">
+          <span className="text-muted-foreground w-16 text-right shrink-0">Conceded:</span>
+          <div className="flex-1 bg-gray-200 rounded-full h-2 min-w-0">
+            <div 
+              className="bg-red-500 h-2 rounded-full transition-all duration-300"
+              style={{ width: `${concededPercentage}%` }}
+            ></div>
+          </div>
+          <span className="font-medium text-red-600 w-8 text-xs shrink-0">
+            {stats.defensive_vulnerability.toFixed(1)}
+          </span>
+        </div>
+      </div>
+    );
+  };
+
+  // Helper function to render compact performance tags
+  const renderCompactPerformanceTags = (tags: string[]) => {
+    if (!tags || tags.length === 0) return null;
+
+    return (
+      <div className="flex flex-wrap gap-1">
+        {tags.slice(0, 2).map((tag, index) => (
+          <span
+            key={index}
+            className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-primary/10 text-primary"
+          >
+            {tag}
+          </span>
+        ))}
+        {tags.length > 2 && (
+          <span className="text-xs text-muted-foreground">+{tags.length - 2} more</span>
+        )}
+      </div>
+    );
+  };
+
+  // Helper function to get recommendation rank styling
+  const getRankStyling = (rank: number): { badge: string; text: string } => {
+    switch (rank) {
+      case 1:
+        return { badge: 'bg-green-100 text-green-800 border-green-200', text: 'Excellent' };
+      case 2:
+        return { badge: 'bg-blue-100 text-blue-800 border-blue-200', text: 'Very Good' };
+      case 3:
+        return { badge: 'bg-yellow-100 text-yellow-800 border-yellow-200', text: 'Good' };
+      case 4:
+        return { badge: 'bg-orange-100 text-orange-800 border-orange-200', text: 'Fair' };
+      case 5:
+        return { badge: 'bg-red-100 text-red-800 border-red-200', text: 'Poor' };
+      default:
+        return { badge: 'bg-gray-100 text-gray-800 border-gray-200', text: 'Unranked' };
+    }
+  };
+
+  // Helper function to generate a one-liner explanation for why a leg is good
+  const generateLegExplanation = (leg: Leg): string => {
+    if (!leg.positionStats) {
+      return `Strong ${leg.market} pick with ${leg.odds.toFixed(2)} odds`;
+    }
+
+    const stats = leg.positionStats;
+    const scoringRate = stats.scoring_rate;
+    const defensiveVuln = stats.defensive_vulnerability;
+    const market = leg.market;
+    const position = leg.position ? formatPosition(leg.position) : 'player';
+
+    // Generate explanation based on stats and market
+    if (market === 'ATS') {
+      if (scoringRate >= 1.0) {
+        return `High-scoring ${position} averaging ${scoringRate.toFixed(1)} tries/game - strong ATS chance`;
+      } else if (scoringRate >= 0.5) {
+        return `Consistent ${position} with solid ${scoringRate.toFixed(1)} tries/game scoring rate`;
+      } else {
+        return `Value pick - ${position} with decent odds at ${leg.odds.toFixed(2)}`;
+      }
+    } else if (market === '2+' || market === '2GS') {
+      if (scoringRate >= 1.2) {
+        return `Prolific scorer averaging ${scoringRate.toFixed(1)} tries/game - excellent 2+ chance`;
+      } else if (scoringRate >= 0.8) {
+        return `Reliable ${position} with good ${scoringRate.toFixed(1)} tries/game average`;
+      } else {
+        return `Solid 2+ option with ${leg.odds.toFixed(2)} odds`;
+      }
+    } else if (market === 'AGS') {
+      if (scoringRate >= 0.8) {
+        return `Strong attacking ${position} - ${scoringRate.toFixed(1)} tries/game makes AGS likely`;
+      } else {
+        return `Good AGS prospect with ${leg.odds.toFixed(2)} odds`;
+      }
+    }
+
+    // Fallback explanation
+    return `Quality ${position} pick with ${leg.odds.toFixed(2)} odds`;
   };
 
   const renderContent = () => {
     if (isLoading) {
       return (
-        <div className='flex flex-col items-center space-y-2'>
-            <p className="text-foreground">Generating your multi...</p>
-            <Progress className="w-[60%] bg-secondary/30" />
+        <div className="flex flex-col items-center justify-center h-64 space-y-4">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          <p className="text-muted-foreground">Generating your multi...</p>
+          <Progress value={66} className="w-48" />
         </div>
       );
     }
 
     if (error) {
       return (
-        <Alert variant="destructive" className="bg-destructive/20 border-destructive/30">
+        <Alert variant="destructive">
           <Terminal className="h-4 w-4" />
-          <AlertTitle className="text-destructive">Error</AlertTitle>
-          <AlertDescription className="text-foreground">{error}</AlertDescription>
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
         </Alert>
       );
     }
 
-    if (result && getMainLegs().length > 0) {
+    if (!result) {
+      return (
+        <Alert>
+          <Terminal className="h-4 w-4" />
+          <AlertTitle>No Results</AlertTitle>
+          <AlertDescription>No multi combinations were found. Please try different parameters.</AlertDescription>
+        </Alert>
+      );
+    }
+
       const mainLegs = getMainLegs();
+    const mainOdds = getMainOdds();
+    const mainPotentialWin = getMainPotentialWin();
       
       return (
-        <div>
-            <p className="mb-2 text-sm text-muted-foreground">
-                Target Odds: {result.targetOdds.toFixed(2)} /
-                Achieved Odds: {getMainOdds().toFixed(2)} /
-                Potential Win: ${getMainPotentialWin().toFixed(2)} (from ${result.stake?.toFixed(2)} stake)
-            </p>
-            <ul className="space-y-2 border border-primary/20 rounded-md p-3 bg-card/70 max-h-[350px] overflow-y-auto">
-                {mainLegs.map((leg, index) => {
-                    const hasAlternatives = getPlayerAlternatives(index).length > 0;
-                    const isExpanded = expandedPosition === index;
+      <div className="h-full flex flex-col">
+        {/* Header Section - Fixed */}
+        <div className="flex-shrink-0 space-y-3">
+          {/* Multi Selection Tabs */}
+          {result.combinations && result.combinations.length > 1 && (
+            <div className="flex space-x-2">
+              {result.combinations.map((_, index) => (
+                <Button 
+                  key={index}
+                  variant={selectedMultiIndex === index ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setSelectedMultiIndex(index)}
+                >
+                  Multi {index + 1}
+                </Button>
+              ))}
+            </div>
+          )}
+
+          {/* Summary Stats - Compact */}
+          <div className="grid grid-cols-3 gap-3 p-3 bg-muted/50 rounded-lg">
+            <div className="text-center">
+              <p className="text-xs text-muted-foreground">Target</p>
+              <p className="text-lg font-bold text-primary">{result.targetOdds?.toFixed(2)}</p>
+            </div>
+            <div className="text-center">
+              <p className="text-xs text-muted-foreground">Achieved</p>
+              <p className="text-lg font-bold text-accent">{mainOdds.toFixed(2)}</p>
+            </div>
+            <div className="text-center">
+              <p className="text-xs text-muted-foreground">Win</p>
+              <p className="text-lg font-bold text-green-600">${mainPotentialWin.toFixed(2)}</p>
+            </div>
+          </div>
+
+          {/* Swap History */}
+          {swapHistory.length > 0 && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-2">
+              <div className="text-xs font-medium text-blue-900 mb-1">
+                🔄 Swaps Made ({swapHistory.length})
+              </div>
+              <div className="text-xs text-blue-700 space-y-1 max-h-16 overflow-y-auto">
+                {swapHistory.slice(-3).map((swap, index) => (
+                  <div key={index}>
+                    Leg {swap.position}: {swap.from} → {swap.to}
+                  </div>
+                ))}
+                {swapHistory.length > 3 && (
+                  <div className="text-blue-600">... and {swapHistory.length - 3} more</div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Scrollable Multi Legs Section */}
+        <div className="flex-1 overflow-y-auto mt-4 space-y-3 pr-2">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-lg font-bold">Multi Legs</h3>
+            <span className="text-sm text-muted-foreground">{mainLegs.length} legs</span>
+          </div>
+          
+          {mainLegs.map((leg, index) => (
+            <div key={`${leg.playerId}-${leg.market}-${index}`} className="flex items-start gap-3">
+              {/* Main Leg Card */}
+              <div 
+                className={`flex-1 border rounded-lg bg-card hover:shadow-sm transition-all duration-500 ${
+                  swappingPosition === index ? 'scale-105 shadow-lg ring-2 ring-primary/50 bg-primary/5' : ''
+                }`}
+              >
+                {/* Compact Leg Header */}
+                <div className="p-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className={`w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center transition-all duration-300 ${
+                        swappingPosition === index ? 'animate-pulse' : ''
+                      }`}>
+                        {index + 1}
+                      </div>
+                      <div>
+                        <h4 className={`font-semibold text-sm transition-all duration-300 ${
+                          swappingPosition === index ? 'text-primary' : ''
+                        }`}>
+                          {leg.playerName}
+                        </h4>
+                        <p className="text-xs text-muted-foreground">{leg.gameDescription}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className={`text-lg font-bold text-primary transition-all duration-300 ${
+                        swappingPosition === index ? 'scale-110' : ''
+                      }`}>
+                        {leg.odds.toFixed(2)}
+                      </div>
+                      <div className="text-xs text-muted-foreground">odds</div>
+                    </div>
+                  </div>
+                  
+                  {/* Compact Info Row */}
+                  <div className="flex items-center justify-between mt-2 text-xs">
+                    <div className="flex items-center gap-3">
+                      {leg.position && (
+                        <span className={`px-2 py-1 rounded text-xs font-medium ${getPositionColor(leg.position)}`}>
+                          {formatPosition(leg.position)}
+                        </span>
+                      )}
+                      <span className="bg-accent/20 text-accent px-2 py-1 rounded font-medium">
+                        {leg.market === 'ATS' ? 'ATS' : leg.market === '2+' ? '2+ Tries' : leg.market}
+                      </span>
+                    </div>
+                    {leg.team && (
+                      <span className="text-muted-foreground">{leg.team}</span>
+                    )}
+                  </div>
+
+                  {/* One-liner Explanation */}
+                  <div className="mt-2 px-2 py-1.5 bg-muted/30 rounded text-xs">
+                    <p 
+                      className="text-yellow-500 font-medium" 
+                      style={{ 
+                        textShadow: '0 0 4px rgba(234, 179, 8, 0.8), 0 0 8px rgba(234, 179, 8, 0.6), 0 0 12px rgba(234, 179, 8, 0.4)' 
+                      }}
+                    >
+                      {generateLegExplanation(leg)}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Alternatives Section */}
+                {getPlayerAlternatives(index).length > 0 && (
+                  <div className="border-t bg-muted/20">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => togglePositionAlternatives(index)}
+                      className="w-full justify-between p-2 h-auto text-xs hover:bg-muted/50"
+                    >
+                      <span>Alternatives ({getPlayerAlternatives(index).length})</span>
+                      {expandedPosition === index ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                    </Button>
                     
-                    return (
-                      <React.Fragment key={`${leg.gameId}-${leg.playerId}-${leg.market}`}>
-                        <li className="text-sm">
-                          <div className="flex justify-between items-center">
-                            <span>
-                                <span className="font-semibold text-foreground">{leg.playerName}</span> 
-                                <span className="ml-1 text-xs px-1.5 py-0.5 rounded bg-primary/10 text-primary">
-                                    {leg.market === 'ATS' ? 'Anytime Try' : 
-                                     leg.market === 'AGS' ? 'Anytime Goal' :
-                                     leg.sport === 'AFL' ? '2+ Goals' : 
-                                     leg.market === '2GS' ? '2+ Goals' : '2+ Tries'}
-                                </span>
-                                <br/>
-                                <span className='text-xs text-muted-foreground'>
-                                    {leg.team ? `${leg.team} - ` : ''}{leg.gameDescription}
-                                </span>
-                            </span>
-                            <div className="flex items-center gap-2">
-                              <span className="font-mono bg-primary text-primary-foreground px-1.5 py-0.5 rounded text-xs">
-                                  @{leg.odds.toFixed(2)}
-                              </span>
-                              {hasAlternatives && (
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm" 
-                                  className="h-7 w-7 p-0 hover:bg-primary/10 text-foreground"
-                                  onClick={() => togglePositionAlternatives(index)}
-                                >
-                                  {isExpanded ? (
-                                    <ChevronUp className="h-4 w-4" />
-                                  ) : (
-                                    <ChevronDown className="h-4 w-4" />
-                                  )}
-                                </Button>
+                    {expandedPosition === index && (
+                      <div className="p-2 space-y-2 max-h-48 overflow-y-auto">
+                        {getPlayerAlternatives(index).map((alt, altIndex) => {
+                          const rankStyling = getRankStyling(alt.recommendationRank || 0);
+                          return (
+                            <div key={altIndex} className="relative border rounded-lg bg-card p-3 hover:shadow-sm transition-all duration-200">
+                              {/* Compact Rank Badge */}
+                              {alt.recommendationRank && (
+                                <div className="absolute top-1 right-1">
+                                  <span className={`px-1.5 py-0.5 rounded text-xs font-bold ${rankStyling.badge}`}>
+                                    #{alt.recommendationRank}
+                                  </span>
+                                </div>
                               )}
-                            </div>
-                          </div>
-                          
-                          {/* Alternative players for this position */}
-                          {isExpanded && (
-                            <div className="mt-2 ml-4 border-l-2 pl-3 border-primary/30">
-                              <p className="text-xs text-primary mb-1">Alternative Players:</p>
-                              <ul className="space-y-1.5">
-                                {getPlayerAlternatives(index).map((alt, altIndex) => (
-                                  <li key={`alt-${index}-${altIndex}`} className="text-xs">
-                                    <div className="flex justify-between items-center hover:bg-primary/10 p-1 rounded cursor-pointer" onClick={() => handleSwapPlayer(index, alt)}>
-                                      <span>
-                                        <span className="font-medium text-foreground">{alt.playerName}</span>
-                                        <span className="ml-1 px-1 py-0.5 rounded bg-primary/10 text-primary text-[10px]">
-                                          {alt.market === 'ATS' ? 'Anytime Try' : 
-                                           alt.market === 'AGS' ? 'Anytime Goal' :
-                                           alt.sport === 'AFL' ? '2+ Goals' : 
-                                           alt.market === '2GS' ? '2+ Goals' : '2+ Tries'}
-                                        </span>
-                                      </span>
-                                      <div className="flex flex-col items-end">
-                                        <span className="font-mono bg-primary/20 text-primary px-1 rounded text-[10px]">
-                                          @{alt.odds.toFixed(2)}
-                                        </span>
-                                        <span className="text-[10px] text-muted-foreground">
-                                          New Multi: {alt.newMultiOdds.toFixed(2)} (${alt.newPotentialWin.toFixed(2)})
-                                        </span>
+                              
+                              <div className="flex items-start gap-3">
+                                <div className="flex-1 pr-8">
+                                  {/* Player Info */}
+                                  <div className="flex items-center justify-between mb-2">
+                                    <div>
+                                      <h5 className="font-semibold text-sm">{alt.playerName}</h5>
+                                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                        <span>{alt.market} @ {alt.odds.toFixed(2)}</span>
+                                        {alt.position && (
+                                          <span className={`px-1 py-0.5 rounded text-xs ${getPositionColor(alt.position)}`}>
+                                            {alt.position}
+                                          </span>
+                                        )}
                                       </div>
                                     </div>
-                                  </li>
-                                ))}
-                              </ul>
+                                    <Button
+                                      size="sm"
+                                      onClick={() => handleSwapPlayer(index, alt)}
+                                      disabled={isSwapping}
+                                      className={`h-7 px-3 text-xs transition-all duration-200 ${
+                                        isSwapping ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105'
+                                      }`}
+                                    >
+                                      {isSwapping && swappingPosition === index ? (
+                                        <div className="flex items-center gap-1">
+                                          <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin"></div>
+                                          Swapping...
+                                        </div>
+                                      ) : (
+                                        'Swap'
+                                      )}
+                                    </Button>
+                                  </div>
+                                  
+                                  {/* Impact & Tags */}
+                                  <div className="space-y-1">
+                                    <div className="text-xs bg-muted/50 rounded px-2 py-1">
+                                      <span className="text-muted-foreground">New: </span>
+                                      <span className="font-medium text-accent">{alt.newMultiOdds?.toFixed(2)} odds</span>
+                                      <span className="text-muted-foreground"> → </span>
+                                      <span className="font-medium text-green-600">${alt.newPotentialWin?.toFixed(2)}</span>
+                                    </div>
+                                    {renderCompactPerformanceTags(alt.performanceTags || [])}
+                                  </div>
+                                </div>
+                                
+                                {/* Alternative Player Circular Strength Bars */}
+                                <div className="flex-shrink-0">
+                                  {renderCircularStrengthBars(alt.positionStats, 'small')}
+                                </div>
+                              </div>
                             </div>
-                          )}
-                        </li>
-                      </React.Fragment>
-                    );
-                })}
-            </ul>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* External Circular Strength Bars - Right Side */}
+              {leg.positionStats && (
+                <div className="flex-shrink-0 mt-2">
+                  {renderCircularStrengthBars(leg.positionStats, 'large')}
+                </div>
+              )}
+            </div>
+          ))}
         </div>
-      );
-    }
-
-    if (result && getMainLegs().length === 0) {
-      return (
-        <Alert className="bg-secondary/10 border-secondary/20">
-          <Terminal className="h-4 w-4" />
-          <AlertTitle className="text-foreground">No Combination Found</AlertTitle>
-          <AlertDescription className="text-muted-foreground">{result.message}</AlertDescription>
-        </Alert>
-      );
-    }
-
-    // Fallback for unexpected state
-    return <p>Something went wrong. Please try again.</p>;
+      </div>
+    );
   };
 
   return (
-    <Card className="flex flex-col bg-card border-primary/20 shadow-lg h-full">
-      <CardHeader className="bg-card border-b border-primary/10">
-        <CardTitle className="text-foreground">Your Generated Multi</CardTitle>
-        <CardDescription className="text-muted-foreground">
-          {isLoading ? "Calculating..." : (error || (result && getMainLegs().length === 0)) ? "Result" : "Here's a multi matching your request:"}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="flex-grow flex flex-col pt-6 overflow-auto">
-        {renderContent()}
-      </CardContent>
-      <CardFooter className="mt-auto flex justify-end">
-        <Button 
-          variant="secondary" 
-          onClick={onRestart} 
-          disabled={isLoading}
-          className="bg-secondary text-secondary-foreground hover:bg-secondary/90 disabled:opacity-50"
-        >
-          Clear Results
+    <div className="h-full flex flex-col">
+      {/* Fixed Header */}
+      <div className="flex-shrink-0 border-b bg-card p-4">
+        <div className="flex justify-between items-start">
+          <div>
+            <h2 className="text-xl font-bold text-primary">🎯 Multi Generated!</h2>
+            <p className="text-sm text-muted-foreground">
+              {result?.message || `Your ${getMainLegs().length}-leg multi combination`}
+              {result?.combinations && result.combinations.length > 1 && 
+                ` (${selectedMultiIndex + 1} of ${result.combinations.length})`
+              }
+            </p>
+          </div>
+        <Button
+          variant="outline"
+            size="sm"
+          onClick={handleShare}
+            disabled={isSharing}
+            className="flex items-center gap-2"
+          >
+            <Share2 className="h-4 w-4" />
+            {isSharing ? "Sharing..." : "Share"}
+          </Button>
+        </div>
+      </div>
+
+      {/* Scrollable Content */}
+      <div className="flex-1 overflow-hidden">
+        <div ref={multiCardRef} className="h-full p-4">
+          {renderContent()}
+        </div>
+      </div>
+
+      {/* Fixed Footer */}
+      <div className="flex-shrink-0 border-t bg-card p-4">
+        <div className="flex justify-between">
+          <Button variant="outline" onClick={onBack}>
+            Back to Edit
         </Button>
-      </CardFooter>
-    </Card>
+          <Button onClick={onRestart}>
+            Generate New Multi
+        </Button>
+        </div>
+      </div>
+    </div>
   );
 } 

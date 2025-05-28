@@ -6,6 +6,26 @@ import { AnimatePresence, motion } from 'framer-motion';
 import Stage1And2, { SportType } from '@/components/Stage1And2';
 import Stage3, { MultiResult } from '@/components/Stage3';
 
+// Function to get or create a userId
+const getOrCreateUserId = (): string => {
+  let userId = localStorage.getItem('multiBuilderUserId');
+  if (!userId) {
+    // Generate a simple UUID-like string if crypto.randomUUID is not available
+    // For more robust UUIDs, consider a library if needed for other purposes
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+      userId = crypto.randomUUID();
+    } else {
+      // Basic fallback for environments without crypto.randomUUID
+      userId = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        const r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+      });
+    }
+    localStorage.setItem('multiBuilderUserId', userId);
+  }
+  return userId;
+};
+
 export default function MultiBuilderPage() {
   const [stake, setStake] = useState<number | null>(null);
   const [winAmount, setWinAmount] = useState<number | null>(null);
@@ -14,13 +34,15 @@ export default function MultiBuilderPage() {
   const [error, setError] = useState<string | null>(null);
   const [multiResult, setMultiResult] = useState<MultiResult | null>(null);
 
-  const handleCombinedSubmit = async (stakeValue: number, winAmountValue: number, sportTypeValue: SportType) => {
+  const handleCombinedSubmit = async (stakeValue: number, winAmountValue: number, sportTypeValue: SportType, maxOddsPerLeg?: number) => {
     setStake(stakeValue);
     setWinAmount(winAmountValue);
     setSportType(sportTypeValue);
     setError(null);
     setMultiResult(null);
     setIsLoading(true);
+
+    const userId = getOrCreateUserId(); // Get or create userId
 
     try {
       // Create an AbortController to handle timeouts
@@ -44,7 +66,9 @@ export default function MultiBuilderPage() {
         stake: stakeValue, 
         winAmount: winAmountValue,
         sportType: sportTypeValue,
-        alternatives: 3
+        alternatives: 3,
+        userId: userId, // Add userId to the payload
+        maxOddsPerLeg: maxOddsPerLeg // Add maxOddsPerLeg to the payload
       });
       
       let response;
@@ -60,7 +84,9 @@ export default function MultiBuilderPage() {
             stake: stakeValue, 
             winAmount: winAmountValue,
             sportType: sportTypeValue,
-            alternatives: 3
+            alternatives: 3,
+            userId: userId, // Add userId to the payload
+            maxOddsPerLeg: maxOddsPerLeg // Add maxOddsPerLeg to the payload
           }),
           signal: controller.signal
         });
@@ -84,7 +110,9 @@ export default function MultiBuilderPage() {
               stake: stakeValue, 
               winAmount: winAmountValue,
               sportType: sportTypeValue,
-              alternatives: 3
+              alternatives: 3,
+              userId: userId, // Add userId to the payload for fallback request
+              maxOddsPerLeg: maxOddsPerLeg // Add maxOddsPerLeg to the payload for fallback request
             }),
             signal: fallbackController.signal
           });
