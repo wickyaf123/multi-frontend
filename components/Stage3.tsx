@@ -5,8 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
-import { Terminal, ChevronDown, ChevronUp, Share2 } from "lucide-react"; 
+import { Terminal, ChevronDown, ChevronUp, Share2, Info } from "lucide-react"; 
 import html2canvas from 'html2canvas';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 // Define the structure of a single leg
 interface Leg {
@@ -349,75 +355,109 @@ export default function Stage3({ isLoading, error, result, onBack, onRestart, on
     const concededOffset = circumference - (concededPercentage / 100) * circumference;
 
     return (
-      <div className={`flex ${size === 'large' ? 'flex-col gap-3' : 'flex-row gap-2'} items-center`}>
-        {/* Scored Circle */}
-        <div className="flex flex-col items-center">
-          <div className="relative">
-            <svg width={circleSize} height={circleSize} className="transform -rotate-90">
-              {/* Background circle */}
-              <circle
-                cx={circleSize / 2}
-                cy={circleSize / 2}
-                r={radius}
-                stroke="#e5e7eb"
-                strokeWidth={strokeWidth}
-                fill="transparent"
-              />
-              {/* Progress circle */}
-              <circle
-                cx={circleSize / 2}
-                cy={circleSize / 2}
-                r={radius}
-                stroke="#10b981"
-                strokeWidth={strokeWidth}
-                fill="transparent"
-                strokeDasharray={circumference}
-                strokeDashoffset={scoringOffset}
-                strokeLinecap="round"
-                className="transition-all duration-500 ease-in-out"
-              />
-            </svg>
-            <div className={`absolute inset-0 flex items-center justify-center ${size === 'large' ? 'text-xs' : 'text-xs'} font-bold text-green-600`}>
-              {positionStats.scoring_rate.toFixed(1)}
+      <TooltipProvider>
+        <div className={`flex ${size === 'large' ? 'flex-col gap-3' : 'flex-row gap-2'} items-center`}>
+          {/* Scored Circle */}
+          <div className="flex flex-col items-center">
+            <div className="relative">
+              <svg width={circleSize} height={circleSize} className="transform -rotate-90">
+                {/* Background circle */}
+                <circle
+                  cx={circleSize / 2}
+                  cy={circleSize / 2}
+                  r={radius}
+                  stroke="#e5e7eb"
+                  strokeWidth={strokeWidth}
+                  fill="transparent"
+                />
+                {/* Progress circle */}
+                <circle
+                  cx={circleSize / 2}
+                  cy={circleSize / 2}
+                  r={radius}
+                  stroke="#10b981"
+                  strokeWidth={strokeWidth}
+                  fill="transparent"
+                  strokeDasharray={circumference}
+                  strokeDashoffset={scoringOffset}
+                  strokeLinecap="round"
+                  className="transition-all duration-500 ease-in-out"
+                />
+              </svg>
+              <div className={`absolute inset-0 flex items-center justify-center ${size === 'large' ? 'text-xs' : 'text-xs'} font-bold text-green-600`}>
+                {positionStats.scoring_rate.toFixed(1)}
+              </div>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className={`${size === 'large' ? 'text-xs' : 'text-xs'} text-muted-foreground mt-1 text-center`}>
+                {size === 'large' ? 'Scored per game' : 'Scored'}
+                <br />
+                {size === 'large' && <span className="text-[10px]">by position</span>}
+              </span>
+              {size === 'large' && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs">
+                    <p>Tries scored per game by the player's position in the player's team this season</p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
             </div>
           </div>
-          <span className={`${size === 'large' ? 'text-xs' : 'text-xs'} text-muted-foreground mt-1`}>Scored</span>
-        </div>
 
-        {/* Conceded Circle */}
-        <div className="flex flex-col items-center">
-          <div className="relative">
-            <svg width={circleSize} height={circleSize} className="transform -rotate-90">
-              {/* Background circle */}
-              <circle
-                cx={circleSize / 2}
-                cy={circleSize / 2}
-                r={radius}
-                stroke="#e5e7eb"
-                strokeWidth={strokeWidth}
-                fill="transparent"
-              />
-              {/* Progress circle */}
-              <circle
-                cx={circleSize / 2}
-                cy={circleSize / 2}
-                r={radius}
-                stroke="#ef4444"
-                strokeWidth={strokeWidth}
-                fill="transparent"
-                strokeDasharray={circumference}
-                strokeDashoffset={concededOffset}
-                strokeLinecap="round"
-                className="transition-all duration-500 ease-in-out"
-              />
-            </svg>
-            <div className={`absolute inset-0 flex items-center justify-center ${size === 'large' ? 'text-xs' : 'text-xs'} font-bold text-red-600`}>
-              {positionStats.defensive_vulnerability.toFixed(1)}
+          {/* Conceded Circle */}
+          <div className="flex flex-col items-center">
+            <div className="relative">
+              <svg width={circleSize} height={circleSize} className="transform -rotate-90">
+                {/* Background circle */}
+                <circle
+                  cx={circleSize / 2}
+                  cy={circleSize / 2}
+                  r={radius}
+                  stroke="#e5e7eb"
+                  strokeWidth={strokeWidth}
+                  fill="transparent"
+                />
+                {/* Progress circle */}
+                <circle
+                  cx={circleSize / 2}
+                  cy={circleSize / 2}
+                  r={radius}
+                  stroke="#ef4444"
+                  strokeWidth={strokeWidth}
+                  fill="transparent"
+                  strokeDasharray={circumference}
+                  strokeDashoffset={concededOffset}
+                  strokeLinecap="round"
+                  className="transition-all duration-500 ease-in-out"
+                />
+              </svg>
+              <div className={`absolute inset-0 flex items-center justify-center ${size === 'large' ? 'text-xs' : 'text-xs'} font-bold text-red-600`}>
+                {positionStats.defensive_vulnerability.toFixed(1)}
+              </div>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className={`${size === 'large' ? 'text-xs' : 'text-xs'} text-muted-foreground mt-1 text-center`}>
+                {size === 'large' ? 'Conceded per game' : 'Conceded'}
+                <br />
+                {size === 'large' && <span className="text-[10px]">by position</span>}
+              </span>
+              {size === 'large' && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs">
+                    <p>Tries conceded per game to the player's position by the opposing team this season</p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
             </div>
           </div>
-          <span className={`${size === 'large' ? 'text-xs' : 'text-xs'} text-muted-foreground mt-1`}>Conceded</span>
         </div>
-      </div>
+      </TooltipProvider>
     );
   };
 
@@ -603,18 +643,18 @@ export default function Stage3({ isLoading, error, result, onBack, onRestart, on
           )}
 
           {/* Summary Stats - Compact */}
-          <div className="grid grid-cols-3 gap-3 p-3 bg-muted/50 rounded-lg">
+          <div className="grid grid-cols-3 gap-3 p-2 bg-muted/50 rounded-lg">
             <div className="text-center">
               <p className="text-xs text-muted-foreground">Target</p>
-              <p className="text-lg font-bold text-primary">{result.targetOdds?.toFixed(2)}</p>
+              <p className="text-base font-bold text-primary">{result.targetOdds?.toFixed(2)}</p>
             </div>
             <div className="text-center">
               <p className="text-xs text-muted-foreground">Achieved</p>
-              <p className="text-lg font-bold text-accent">{mainOdds.toFixed(2)}</p>
+              <p className="text-base font-bold text-accent">{mainOdds.toFixed(2)}</p>
             </div>
             <div className="text-center">
               <p className="text-xs text-muted-foreground">Win</p>
-              <p className="text-lg font-bold text-green-600">${mainPotentialWin.toFixed(2)}</p>
+              <p className="text-base font-bold text-green-600">${mainPotentialWin.toFixed(2)}</p>
             </div>
           </div>
 
@@ -693,21 +733,6 @@ export default function Stage3({ isLoading, error, result, onBack, onRestart, on
                         {leg.market === 'ATS' ? 'ATS' : leg.market === '2+' ? '2+ Tries' : leg.market}
                       </span>
                     </div>
-                    {leg.team && (
-                      <span className="text-muted-foreground">{leg.team}</span>
-                    )}
-                  </div>
-
-                  {/* One-liner Explanation */}
-                  <div className="mt-2 px-2 py-1.5 bg-muted/30 rounded text-xs">
-                    <p 
-                      className="text-yellow-500 font-medium" 
-                      style={{ 
-                        textShadow: '0 0 4px rgba(234, 179, 8, 0.8), 0 0 8px rgba(234, 179, 8, 0.6), 0 0 12px rgba(234, 179, 8, 0.4)' 
-                      }}
-                    >
-                      {generateLegExplanation(leg)}
-                    </p>
                   </div>
                 </div>
 
@@ -720,7 +745,7 @@ export default function Stage3({ isLoading, error, result, onBack, onRestart, on
                       onClick={() => togglePositionAlternatives(index)}
                       className="w-full justify-between p-2 h-auto text-xs hover:bg-muted/50"
                     >
-                      <span>Alternatives ({getPlayerAlternatives(index).length})</span>
+                      <span>See Alternatives</span>
                       {expandedPosition === index ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
                     </Button>
                     
@@ -816,24 +841,21 @@ export default function Stage3({ isLoading, error, result, onBack, onRestart, on
     <div className="h-full flex flex-col">
       {/* Fixed Header */}
       <div className="flex-shrink-0 border-b bg-card p-4">
-        <div className="flex justify-between items-start">
+        <div className="space-y-3">
           <div>
             <h2 className="text-xl font-bold text-primary">🎯 Multi Generated!</h2>
             <p className="text-sm text-muted-foreground">
               {result?.message || `Your ${getMainLegs().length}-leg multi combination`}
-              {result?.combinations && result.combinations.length > 1 && 
-                ` (${selectedMultiIndex + 1} of ${result.combinations.length})`
-              }
             </p>
           </div>
-        <Button
-          variant="outline"
-            size="sm"
-          onClick={handleShare}
+          <Button
+            variant="outline"
+            size="default"
+            onClick={handleShare}
             disabled={isSharing}
             className="flex items-center gap-2"
           >
-            <Share2 className="h-4 w-4" />
+            <Share2 className="h-5 w-5" />
             {isSharing ? "Sharing..." : "Share"}
           </Button>
         </div>
@@ -848,13 +870,10 @@ export default function Stage3({ isLoading, error, result, onBack, onRestart, on
 
       {/* Fixed Footer */}
       <div className="flex-shrink-0 border-t bg-card p-4">
-        <div className="flex justify-between">
-          <Button variant="outline" onClick={onBack}>
-            Back to Edit
-        </Button>
+        <div className="flex justify-start">
           <Button onClick={onRestart}>
             Generate New Multi
-        </Button>
+          </Button>
         </div>
       </div>
     </div>
