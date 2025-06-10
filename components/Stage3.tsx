@@ -30,6 +30,10 @@ interface Leg {
         tries_conceded_per_game: number;
         scoring_rate: number;
         defensive_vulnerability: number;
+        league_ranking_scored?: number;
+        league_ranking_conceded?: number;
+        total_tries_scored?: number;
+        total_tries_conceded?: number;
     };
 }
 
@@ -88,6 +92,7 @@ export default function Stage3({ isLoading, error, result, onBack, onRestart, on
   const [swapHistory, setSwapHistory] = useState<Array<{from: string, to: string, position: number}>>([]);
   const [swappingPosition, setSwappingPosition] = useState<number | null>(null); // Track which position is being swapped
   const [isSwapping, setIsSwapping] = useState<boolean>(false); // Global swap state
+  const [isShareMode, setIsShareMode] = useState<boolean>(false); // Track if in share mode for cleaner screenshot
 
   useEffect(() => {
     // Reset selected multi index if the result is cleared or combinations change structure
@@ -238,16 +243,24 @@ export default function Stage3({ isLoading, error, result, onBack, onRestart, on
     if (!multiCardRef.current || isSharing) return;
 
     setIsSharing(true);
+    setIsShareMode(true); // Enable share mode for cleaner screenshot
+    
     try {
-      // Show loading state (you could add a loading indicator here)
+      // Wait a moment for the UI to update
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
       console.log("Taking screenshot...");
       
       // Configure html2canvas for better quality
       const canvas = await html2canvas(multiCardRef.current, {
         scale: 2, // Higher resolution
         useCORS: true,
-        allowTaint: true,
-        backgroundColor: '#ffffff'
+        allowTaint: false,
+        backgroundColor: '#ffffff',
+        removeContainer: true,
+        logging: false,
+        height: window.innerHeight,
+        width: window.innerWidth
       } as any);
       
       const image = canvas.toDataURL("image/png", 1.0); // Maximum quality
@@ -289,6 +302,7 @@ export default function Stage3({ isLoading, error, result, onBack, onRestart, on
       alert("Sorry, there was an error taking the screenshot. Please try again.");
     } finally {
       setIsSharing(false);
+      setIsShareMode(false);
     }
   };
 
@@ -546,6 +560,39 @@ export default function Stage3({ isLoading, error, result, onBack, onRestart, on
     }
   };
 
+  // Helper function to generate ranking explanation for position tooltips
+  const generatePositionRankingExplanation = (leg: Leg): string => {
+    if (!leg.positionStats || !leg.team || !leg.position) {
+      return "No ranking data available";
+    }
+    
+    const stats = leg.positionStats;
+    const team = leg.team;
+    const position = formatPosition(leg.position);
+    const market = leg.market;
+    
+    // Determine which ranking to show based on market type
+    if (market === 'ATS' || market === '2+') {
+      // For scoring markets, show scoring ranking
+      if (stats.league_ranking_scored && stats.total_tries_scored !== undefined) {
+        const ordinalSuffix = (n: number) => {
+          const s = ["th", "st", "nd", "rd"];
+          const v = n % 100;
+          return n + (s[(v - 20) % 10] || s[v] || s[0]);
+        };
+        
+        return `${team} are ranked ${ordinalSuffix(stats.league_ranking_scored)} for tries scored by ${position.toLowerCase()}s this season with ${stats.total_tries_scored}`;
+      }
+    }
+    
+    // Fallback to general stats
+    if (stats.scoring_rate) {
+      return `${team} ${position.toLowerCase()}s average ${stats.scoring_rate.toFixed(1)} tries per game this season`;
+    }
+    
+    return "Statistical data available";
+  };
+
   // Helper function to generate a one-liner explanation for why a leg is good
   const generateLegExplanation = (leg: Leg): string => {
     if (!leg.positionStats) {
@@ -623,11 +670,12 @@ export default function Stage3({ isLoading, error, result, onBack, onRestart, on
     const mainPotentialWin = getMainPotentialWin();
       
       return (
+      <TooltipProvider>
       <div className="h-full flex flex-col">
         {/* Header Section - Fixed */}
         <div className="flex-shrink-0 space-y-3">
-          {/* Multi Selection Tabs */}
-          {result.combinations && result.combinations.length > 1 && (
+          {/* Multi Selection Tabs - Hidden in share mode */}
+          {!isShareMode && result.combinations && result.combinations.length > 1 && (
             <div className="flex space-x-2">
               {result.combinations.map((_, index) => (
                 <Button 
@@ -639,6 +687,15 @@ export default function Stage3({ isLoading, error, result, onBack, onRestart, on
                   Multi {index + 1}
                 </Button>
               ))}
+            </div>
+          )}
+          
+          {/* Share mode title */}
+          {isShareMode && (
+            <div className="text-center border-b pb-3">
+              <h2 className="text-xl font-bold text-primary">🎯 My Generated Multi</h2>
+              <p className="text-sm text-muted-foreground">Multi {selectedMultiIndex + 1} of {result.combinations?.length || 1}</p>
+              <p className="text-xs text-muted-foreground mt-1 font-medium">Generated with Multi Builder</p>
             </div>
           )}
 
@@ -658,8 +715,8 @@ export default function Stage3({ isLoading, error, result, onBack, onRestart, on
             </div>
           </div>
 
-          {/* Swap History */}
-          {swapHistory.length > 0 && (
+          {/* Swap History - Hidden in share mode */}
+          {!isShareMode && swapHistory.length > 0 && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-2">
               <div className="text-xs font-medium text-blue-900 mb-1">
                 🔄 Swaps Made ({swapHistory.length})
@@ -725,9 +782,19 @@ export default function Stage3({ isLoading, error, result, onBack, onRestart, on
                   <div className="flex items-center justify-between mt-2 text-xs">
                     <div className="flex items-center gap-3">
                       {leg.position && (
-                        <span className={`px-2 py-1 rounded text-xs font-medium ${getPositionColor(leg.position)}`}>
-                          {formatPosition(leg.position)}
-                        </span>
+                        <div className="flex items-center gap-1">
+                          <span className={`px-2 py-1 rounded text-xs font-medium ${getPositionColor(leg.position)}`}>
+                            {formatPosition(leg.position)}
+                          </span>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-xs">
+                              <p>{generatePositionRankingExplanation(leg)}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
                       )}
                       <span className="bg-accent/20 text-accent px-2 py-1 rounded font-medium">
                         {leg.market === 'ATS' ? 'ATS' : leg.market === '2+' ? '2+ Tries' : leg.market}
@@ -736,8 +803,8 @@ export default function Stage3({ isLoading, error, result, onBack, onRestart, on
                   </div>
                 </div>
 
-                {/* Alternatives Section */}
-                {getPlayerAlternatives(index).length > 0 && (
+                {/* Alternatives Section - Hidden in share mode */}
+                {!isShareMode && getPlayerAlternatives(index).length > 0 && (
                   <div className="border-t bg-muted/20">
                     <Button 
                       variant="ghost" 
@@ -824,8 +891,8 @@ export default function Stage3({ isLoading, error, result, onBack, onRestart, on
                 )}
               </div>
 
-              {/* External Circular Strength Bars - Right Side */}
-              {leg.positionStats && (
+              {/* External Circular Strength Bars - Right Side - Hidden in share mode */}
+              {!isShareMode && leg.positionStats && (
                 <div className="flex-shrink-0 mt-2">
                   {renderCircularStrengthBars(leg.positionStats, 'large')}
                 </div>
@@ -834,6 +901,7 @@ export default function Stage3({ isLoading, error, result, onBack, onRestart, on
           ))}
         </div>
       </div>
+      </TooltipProvider>
     );
   };
 
@@ -855,8 +923,17 @@ export default function Stage3({ isLoading, error, result, onBack, onRestart, on
             disabled={isSharing}
             className="flex items-center gap-2"
           >
-            <Share2 className="h-5 w-5" />
-            {isSharing ? "Sharing..." : "Share"}
+            {isSharing ? (
+              <>
+                <div className="w-4 h-4 border border-current border-t-transparent rounded-full animate-spin"></div>
+                Taking Screenshot...
+              </>
+            ) : (
+              <>
+                <Share2 className="h-5 w-5" />
+                Share
+              </>
+            )}
           </Button>
         </div>
       </div>
