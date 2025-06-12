@@ -273,8 +273,8 @@ export default function Stage3({ isLoading, error, result, onBack, onRestart, on
         const file = new File([blob], 'multi-screenshot.png', { type: 'image/png' });
 
           const shareData = {
-          title: 'My Generated Multi',
-            text: `Check out this multi I generated! Target odds: ${result?.targetOdds.toFixed(2)}x, Potential win: $${getMainPotentialWin().toFixed(2)}`,
+          title: 'Build Your Own Bet by Wicky',
+            text: `Check out this multi! Target odds: ${result?.targetOdds.toFixed(2)}x, Potential win: $${getMainPotentialWin().toFixed(2)}`,
           files: [file],
           };
 
@@ -310,7 +310,7 @@ export default function Stage3({ isLoading, error, result, onBack, onRestart, on
   const downloadImage = (imageDataUrl: string) => {
     const link = document.createElement('a');
     link.href = imageDataUrl;
-    link.download = `multi-screenshot-${new Date().getTime()}.png`;
+    link.download = `build-your-own-bet-${new Date().getTime()}.png`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -542,23 +542,7 @@ export default function Stage3({ isLoading, error, result, onBack, onRestart, on
     );
   };
 
-  // Helper function to get recommendation rank styling
-  const getRankStyling = (rank: number): { badge: string; text: string } => {
-    switch (rank) {
-      case 1:
-        return { badge: 'bg-green-100 text-green-800 border-green-200', text: 'Excellent' };
-      case 2:
-        return { badge: 'bg-blue-100 text-blue-800 border-blue-200', text: 'Very Good' };
-      case 3:
-        return { badge: 'bg-yellow-100 text-yellow-800 border-yellow-200', text: 'Good' };
-      case 4:
-        return { badge: 'bg-orange-100 text-orange-800 border-orange-200', text: 'Fair' };
-      case 5:
-        return { badge: 'bg-red-100 text-red-800 border-red-200', text: 'Poor' };
-      default:
-        return { badge: 'bg-gray-100 text-gray-800 border-gray-200', text: 'Unranked' };
-    }
-  };
+  // Rank styling removed as requested
 
   // Helper function to generate ranking explanation for position tooltips
   const generatePositionRankingExplanation = (leg: Leg): string => {
@@ -693,9 +677,8 @@ export default function Stage3({ isLoading, error, result, onBack, onRestart, on
           {/* Share mode title */}
           {isShareMode && (
             <div className="text-center border-b pb-3">
-              <h2 className="text-xl font-bold text-primary">🎯 My Generated Multi</h2>
-              <p className="text-sm text-muted-foreground">Multi {selectedMultiIndex + 1} of {result.combinations?.length || 1}</p>
-              <p className="text-xs text-muted-foreground mt-1 font-medium">Generated with Multi Builder</p>
+              <h2 className="text-xl font-bold text-primary">🎯 Build Your Own Bet by Wicky</h2>
+                              <p className="text-sm text-muted-foreground">Multi {selectedMultiIndex + 1} of {result.combinations?.length || 1}</p>
             </div>
           )}
 
@@ -785,7 +768,7 @@ export default function Stage3({ isLoading, error, result, onBack, onRestart, on
                         <div className="flex items-center gap-1">
                           <span className={`px-2 py-1 rounded text-xs font-medium ${getPositionColor(leg.position)}`}>
                             {formatPosition(leg.position)}
-                          </span>
+                                </span>
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <Info className="h-3 w-3 text-muted-foreground cursor-help" />
@@ -797,8 +780,8 @@ export default function Stage3({ isLoading, error, result, onBack, onRestart, on
                         </div>
                       )}
                       <span className="bg-accent/20 text-accent px-2 py-1 rounded font-medium">
-                        {leg.market === 'ATS' ? 'ATS' : leg.market === '2+' ? '2+ Tries' : leg.market}
-                      </span>
+                        {leg.market === 'ATS' ? 'Anytime Try Scorer' : leg.market === '2+' ? '2+ Tries' : leg.market === '2GS' ? '2+ Goals' : leg.market === 'AGS' ? 'Anytime Goal Scorer' : leg.market}
+                                </span>
                     </div>
                   </div>
                 </div>
@@ -806,43 +789,37 @@ export default function Stage3({ isLoading, error, result, onBack, onRestart, on
                 {/* Alternatives Section - Hidden in share mode */}
                 {!isShareMode && getPlayerAlternatives(index).length > 0 && (
                   <div className="border-t bg-muted/20">
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      onClick={() => togglePositionAlternatives(index)}
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  onClick={() => togglePositionAlternatives(index)}
                       className="w-full justify-between p-2 h-auto text-xs hover:bg-muted/50"
                     >
                       <span>See Alternatives</span>
                       {expandedPosition === index ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                    </Button>
+                                </Button>
                     
                     {expandedPosition === index && (
                       <div className="p-2 space-y-2 max-h-48 overflow-y-auto">
                         {getPlayerAlternatives(index).map((alt, altIndex) => {
-                          const rankStyling = getRankStyling(alt.recommendationRank || 0);
                           return (
                             <div key={altIndex} className="relative border rounded-lg bg-card p-3 hover:shadow-sm transition-all duration-200">
-                              {/* Compact Rank Badge */}
-                              {alt.recommendationRank && (
-                                <div className="absolute top-1 right-1">
-                                  <span className={`px-1.5 py-0.5 rounded text-xs font-bold ${rankStyling.badge}`}>
-                                    #{alt.recommendationRank}
-                                  </span>
-                                </div>
-                              )}
+                              {/* Rank badges removed as requested */}
                               
                               <div className="flex items-start gap-3">
-                                <div className="flex-1 pr-8">
+                                <div className="flex-1">
                                   {/* Player Info */}
                                   <div className="flex items-center justify-between mb-2">
                                     <div>
                                       <h5 className="font-semibold text-sm">{alt.playerName}</h5>
                                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                        <span>{alt.market} @ {alt.odds.toFixed(2)}</span>
+                                      <span>
+                                          {alt.market === 'ATS' ? 'Anytime Try Scorer' : alt.market === '2+' ? '2+ Tries' : alt.market === '2GS' ? '2+ Goals' : alt.market === 'AGS' ? 'Anytime Goal Scorer' : alt.market} @ {alt.odds.toFixed(2)}
+                                        </span>
                                         {alt.position && (
                                           <span className={`px-1 py-0.5 rounded text-xs ${getPositionColor(alt.position)}`}>
                                             {alt.position}
-                                          </span>
+                                      </span>
                                         )}
                                       </div>
                                     </div>
@@ -883,8 +860,8 @@ export default function Stage3({ isLoading, error, result, onBack, onRestart, on
                                 </div>
                               </div>
                             </div>
-                          );
-                        })}
+                    );
+                })}
                       </div>
                     )}
                   </div>
@@ -911,15 +888,15 @@ export default function Stage3({ isLoading, error, result, onBack, onRestart, on
       <div className="flex-shrink-0 border-b bg-card p-4">
         <div className="space-y-3">
           <div>
-            <h2 className="text-xl font-bold text-primary">🎯 Multi Generated!</h2>
+            <h2 className="text-xl font-bold text-primary">🎯 Build Your Own Bet by Wicky</h2>
             <p className="text-sm text-muted-foreground">
               {result?.message || `Your ${getMainLegs().length}-leg multi combination`}
             </p>
           </div>
-          <Button
-            variant="outline"
+        <Button
+          variant="outline"
             size="default"
-            onClick={handleShare}
+          onClick={handleShare}
             disabled={isSharing}
             className="flex items-center gap-2"
           >
@@ -934,7 +911,7 @@ export default function Stage3({ isLoading, error, result, onBack, onRestart, on
                 Share
               </>
             )}
-          </Button>
+        </Button>
         </div>
       </div>
 
@@ -950,7 +927,7 @@ export default function Stage3({ isLoading, error, result, onBack, onRestart, on
         <div className="flex justify-start">
           <Button onClick={onRestart}>
             Generate New Multi
-          </Button>
+        </Button>
         </div>
       </div>
     </div>

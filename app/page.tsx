@@ -217,22 +217,10 @@ export default function MultiBuilderPage() {
     setIsLoading(false);
   }
 
-  // Get title based on sport type
-  const getTitle = () => {
-    switch(sportType) {
-      case 'afl':
-        return 'AFL Multi Builder';
-      case 'combined':
-        return 'AFL & NRL Multi Builder';
-      case 'nrl':
-      default:
-        return 'NRL Multi Builder';
-    }
-  };
+  // Title is now only shown in the Stage3 component
 
   return (
     <div className="flex flex-col justify-center items-center min-h-screen bg-background p-4">
-      <h1 className="text-2xl font-bold text-foreground mb-6">{getTitle()}</h1>
       
       {/* Main layout - side by side on larger screens, stacked on mobile */}
       <div className="w-full max-w-7xl grid grid-cols-1 lg:grid-cols-5 gap-6">
