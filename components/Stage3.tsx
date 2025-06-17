@@ -743,11 +743,16 @@ export default function Stage3({ isLoading, error, result, onBack, onRestart, on
                         {index + 1}
                       </div>
                       <div>
-                        <h4 className={`font-semibold text-sm transition-all duration-300 ${
-                          swappingPosition === index ? 'text-primary' : ''
-                        }`}>
-                          {leg.playerName}
-                        </h4>
+                        <div className="flex items-center gap-2">
+                          <h4 className={`font-semibold text-sm transition-all duration-300 ${
+                            swappingPosition === index ? 'text-primary' : ''
+                          }`}>
+                            {leg.playerName}
+                          </h4>
+                          <span className="bg-accent/20 text-accent px-2 py-0.5 rounded text-xs font-medium">
+                            {leg.market === 'ATS' ? 'Anytime Try Scorer' : leg.market === '2+' ? '2+ Tries' : leg.market === '2GS' ? '2+ Goals' : leg.market === 'AGS' ? 'Anytime Goal Scorer' : leg.market}
+                          </span>
+                        </div>
                         <p className="text-xs text-muted-foreground">{leg.gameDescription}</p>
                       </div>
                     </div>
@@ -779,9 +784,6 @@ export default function Stage3({ isLoading, error, result, onBack, onRestart, on
                           </Tooltip>
                         </div>
                       )}
-                      <span className="bg-accent/20 text-accent px-2 py-1 rounded font-medium">
-                        {leg.market === 'ATS' ? 'Anytime Try Scorer' : leg.market === '2+' ? '2+ Tries' : leg.market === '2GS' ? '2+ Goals' : leg.market === 'AGS' ? 'Anytime Goal Scorer' : leg.market}
-                                </span>
                     </div>
                   </div>
                 </div>
@@ -842,7 +844,7 @@ export default function Stage3({ isLoading, error, result, onBack, onRestart, on
                                     </Button>
                                   </div>
                                   
-                                  {/* Impact & Tags */}
+                                  {/* Impact */}
                                   <div className="space-y-1">
                                     <div className="text-xs bg-muted/50 rounded px-2 py-1">
                                       <span className="text-muted-foreground">New: </span>
@@ -850,7 +852,6 @@ export default function Stage3({ isLoading, error, result, onBack, onRestart, on
                                       <span className="text-muted-foreground"> → </span>
                                       <span className="font-medium text-green-600">${alt.newPotentialWin?.toFixed(2)}</span>
                                     </div>
-                                    {renderCompactPerformanceTags(alt.performanceTags || [])}
                                   </div>
                                 </div>
                                 
