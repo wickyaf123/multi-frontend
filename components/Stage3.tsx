@@ -7,6 +7,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import { Terminal, ChevronDown, ChevronUp, Share2, Info } from "lucide-react"; 
 import html2canvas from 'html2canvas';
+import ShareModal from "@/components/ui/ShareModal";
 import {
   Tooltip,
   TooltipContent,
@@ -88,11 +89,10 @@ export default function Stage3({ isLoading, error, result, onBack, onRestart, on
   const [expandedPosition, setExpandedPosition] = useState<number | null>(null);
   const multiCardRef = useRef<HTMLDivElement>(null);
   const [selectedMultiIndex, setSelectedMultiIndex] = useState<number>(0); // To track which multi to display
-  const [isSharing, setIsSharing] = useState<boolean>(false); // State for share loading
+  const [isShareModalOpen, setIsShareModalOpen] = useState<boolean>(false); // State for share modal
   const [swapHistory, setSwapHistory] = useState<Array<{from: string, to: string, position: number}>>([]);
   const [swappingPosition, setSwappingPosition] = useState<number | null>(null); // Track which position is being swapped
   const [isSwapping, setIsSwapping] = useState<boolean>(false); // Global swap state
-  const [isShareMode, setIsShareMode] = useState<boolean>(false); // Track if in share mode for cleaner screenshot
 
   useEffect(() => {
     // Reset selected multi index if the result is cleared or combinations change structure
@@ -239,82 +239,8 @@ export default function Stage3({ isLoading, error, result, onBack, onRestart, on
     }, 200);
   };
 
-  const handleShare = async () => {
-    if (!multiCardRef.current || isSharing) return;
-
-    setIsSharing(true);
-    setIsShareMode(true); // Enable share mode for cleaner screenshot
-    
-    try {
-      // Wait a moment for the UI to update
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-      console.log("Taking screenshot...");
-      
-      // Configure html2canvas for better quality
-      const canvas = await html2canvas(multiCardRef.current, {
-        scale: 2, // Higher resolution
-        useCORS: true,
-        allowTaint: false,
-        backgroundColor: '#ffffff',
-        removeContainer: true,
-        logging: false,
-        height: window.innerHeight,
-        width: window.innerWidth
-      } as any);
-      
-      const image = canvas.toDataURL("image/png", 1.0); // Maximum quality
-      
-      // Check if Web Share API is supported and files can be shared
-      if (navigator.share && navigator.canShare) {
-        try {
-        const response = await fetch(image);
-        const blob = await response.blob();
-        const file = new File([blob], 'multi-screenshot.png', { type: 'image/png' });
-
-          const shareData = {
-          title: 'Build Your Own Bet by Wicky',
-            text: `Check out this multi! Target odds: ${result?.targetOdds.toFixed(2)}x, Potential win: $${getMainPotentialWin().toFixed(2)}`,
-          files: [file],
-          };
-
-          // Check if the data can be shared
-          if (navigator.canShare(shareData)) {
-            await navigator.share(shareData);
-            console.log("Multi shared successfully!");
-          } else {
-            // Fallback to download if files can't be shared
-            throw new Error("Files cannot be shared on this device");
-          }
-        } catch (shareError) {
-          console.log("Web Share failed, falling back to download:", shareError);
-          // Fallback to download
-          downloadImage(image);
-        }
-      } else {
-        // Fallback for browsers that don't support Web Share API
-        console.log("Web Share API not supported, downloading image");
-        downloadImage(image);
-      }
-    } catch (err) {
-      console.error("Error taking screenshot:", err);
-      // You could show a toast notification here
-      alert("Sorry, there was an error taking the screenshot. Please try again.");
-    } finally {
-      setIsSharing(false);
-      setIsShareMode(false);
-    }
-  };
-
-  // Helper function to download the image
-  const downloadImage = (imageDataUrl: string) => {
-    const link = document.createElement('a');
-    link.href = imageDataUrl;
-    link.download = `build-your-own-bet-${new Date().getTime()}.png`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    console.log("Multi screenshot downloaded!");
+  const handleShare = () => {
+    setIsShareModalOpen(true);
   };
 
   // Helper function to format position name for display
@@ -658,8 +584,8 @@ export default function Stage3({ isLoading, error, result, onBack, onRestart, on
       <div className="h-full flex flex-col">
         {/* Header Section - Fixed */}
         <div className="flex-shrink-0 space-y-3">
-          {/* Multi Selection Tabs - Hidden in share mode */}
-          {!isShareMode && result.combinations && result.combinations.length > 1 && (
+          {/* Multi Selection Tabs */}
+          {result.combinations && result.combinations.length > 1 && (
             <div className="flex space-x-2">
               {result.combinations.map((_, index) => (
                 <Button 
@@ -673,14 +599,7 @@ export default function Stage3({ isLoading, error, result, onBack, onRestart, on
               ))}
             </div>
           )}
-          
-          {/* Share mode title */}
-          {isShareMode && (
-            <div className="text-center border-b pb-3">
-              <h2 className="text-xl font-bold text-primary">🎯 Build Your Own Bet by Wicky</h2>
-                              <p className="text-sm text-muted-foreground">Multi {selectedMultiIndex + 1} of {result.combinations?.length || 1}</p>
-            </div>
-          )}
+
 
           {/* Summary Stats - Compact */}
           <div className="grid grid-cols-3 gap-3 p-2 bg-muted/50 rounded-lg">
@@ -698,8 +617,8 @@ export default function Stage3({ isLoading, error, result, onBack, onRestart, on
             </div>
           </div>
 
-          {/* Swap History - Hidden in share mode */}
-          {!isShareMode && swapHistory.length > 0 && (
+          {/* Swap History */}
+          {swapHistory.length > 0 && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-2">
               <div className="text-xs font-medium text-blue-900 mb-1">
                 🔄 Swaps Made ({swapHistory.length})
@@ -789,7 +708,7 @@ export default function Stage3({ isLoading, error, result, onBack, onRestart, on
                 </div>
 
                 {/* Alternatives Section - Hidden in share mode */}
-                {!isShareMode && getPlayerAlternatives(index).length > 0 && (
+                {getPlayerAlternatives(index).length > 0 && (
                   <div className="border-t bg-muted/20">
                                 <Button 
                                   variant="ghost" 
@@ -870,7 +789,7 @@ export default function Stage3({ isLoading, error, result, onBack, onRestart, on
               </div>
 
               {/* External Circular Strength Bars - Right Side - Hidden in share mode */}
-              {!isShareMode && leg.positionStats && (
+              {leg.positionStats && (
                 <div className="flex-shrink-0 mt-2">
                   {renderCircularStrengthBars(leg.positionStats, 'large')}
                 </div>
@@ -898,20 +817,10 @@ export default function Stage3({ isLoading, error, result, onBack, onRestart, on
           variant="outline"
             size="default"
           onClick={handleShare}
-            disabled={isSharing}
             className="flex items-center gap-2"
           >
-            {isSharing ? (
-              <>
-                <div className="w-4 h-4 border border-current border-t-transparent rounded-full animate-spin"></div>
-                Taking Screenshot...
-              </>
-            ) : (
-              <>
-                <Share2 className="h-5 w-5" />
-                Share
-              </>
-            )}
+            <Share2 className="h-5 w-5" />
+            Share
         </Button>
         </div>
       </div>
@@ -931,6 +840,19 @@ export default function Stage3({ isLoading, error, result, onBack, onRestart, on
         </Button>
         </div>
       </div>
+
+      {/* Share Modal */}
+      {result && getCurrentCombination() && (
+        <ShareModal
+          isOpen={isShareModalOpen}
+          onClose={() => setIsShareModalOpen(false)}
+          combination={getCurrentCombination()!}
+          targetOdds={result.targetOdds}
+          stake={result.stake || 10}
+          multiIndex={selectedMultiIndex + 1}
+          totalMultis={result.combinations?.length || 1}
+        />
+      )}
     </div>
   );
 } 
