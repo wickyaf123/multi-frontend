@@ -210,11 +210,8 @@ export default function ShareModal({
                             {combination.legs.map((leg, index) => (
                                 <div key={`${leg.playerId}-${index}`} className="bg-muted/30 rounded-lg p-2 border border-border">
                                     <div className="flex flex-col">
-                                        {/* Header with player name and number */}
+                                        {/* Header with player name */}
                                         <div className="flex items-center gap-2 mb-1">
-                                            <div className="w-5 h-5 bg-primary text-primary-foreground text-xs font-bold rounded-full flex items-center justify-center flex-shrink-0">
-                                                {index + 1}
-                                            </div>
                                             <div className="font-semibold text-foreground text-sm">
                                                 {leg.playerName}
                                             </div>
@@ -230,7 +227,7 @@ export default function ShareModal({
                                         
                                         {/* Market and sport */}
                                         <div className="flex items-center gap-1 flex-wrap">
-                                            <span className="bg-accent/20 text-accent px-1.5 py-0.5 rounded text-xs font-medium">
+                                            <span style={{color: '#FFFF00'}} className="text-xs font-medium">
                                                 {getMarketDisplayName(leg.market)}
                                             </span>
                                             {leg.sport && (
@@ -238,7 +235,6 @@ export default function ShareModal({
                                                     {getSportEmoji(leg.sport)} {leg.sport.toUpperCase()}
                                                 </span>
                                             )}
-                                            <span className="ml-auto text-xs text-muted-foreground">odds</span>
                                         </div>
                                     </div>
                                 </div>
